@@ -251,8 +251,12 @@ impl<'a> Parser<'a> {
         
         // If no command name was found, check if we have assignments only
         if name.is_none() && !assignments.is_empty() {
-            // Just assignments, no command
-            return Ok(AstNode::NullCommand);
+            // Just assignments, no command - create a compound command with assignments
+            let mut commands: Vec<Box<AstNode>> = assignments.into_iter().map(|a| Box::new(a)).collect();
+            return Ok(AstNode::CompoundCommand {
+                commands,
+                tokens: command_tokens,
+            });
         }
         
         let name = name.ok_or_else(|| ParseError {

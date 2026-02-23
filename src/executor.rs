@@ -47,9 +47,8 @@ impl Executor {
             IrInstruction::ExecuteCommand { name, args, .. } => {
                 let status = self.execute_command(name, args);
                 self.env.exit_status = status;
-                if status != 0 {
-                    return Err(status);
-                }
+                // Don't return error here - let the caller decide
+                return Ok(());
             }
             
             IrInstruction::SetVariable { name, value, .. } => {

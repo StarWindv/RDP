@@ -63,14 +63,14 @@ impl Builtins {
     }
     
     /// Echo arguments
-    fn echo(&self, args: &[String], env: &ShellEnv) -> i32 {
+    fn echo(&self, args: &[String], _env: &ShellEnv) -> i32 {
         let mut first = true;
         for arg in args {
             if !first {
                 print!(" ");
             }
-            // Expand variables in arguments
-            print!("{}", env.expand_variables(arg));
+            // Arguments are already expanded by the executor
+            print!("{}", arg);
             first = false;
         }
         println!();
