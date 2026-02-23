@@ -90,34 +90,33 @@ fn execute_script_file(filename: &str) -> i32 {
 
 /// Parse and execute a command line using SSA architecture
 fn parse_and_execute_ssa(input: &str) -> Result<i32, String> {
+    println!("DEBUG: Parsing input: {}", input);
+    
     // Lexical analysis
     let lexer = Lexer::new(input);
-    let _tokens: Vec<_> = lexer.collect();
+    let tokens: Vec<_> = lexer.collect();
     
-    // Debug: print tokens
-    // for token in &tokens {
-    //     println!("Token: {}", token);
-    // }
+    println!("DEBUG: Lexer produced {} tokens", tokens.len());
     
     // Parsing
     let mut parser = Parser::new(input);
     let ast = parser.parse().map_err(|e| e.to_string())?;
     
-    // Debug: print AST
-    // println!("AST: {}", ast);
+    println!("DEBUG: Parser produced AST: {}", ast);
     
     // SSA IR generation
     let mut generator = SsaIrGenerator::new();
     let ssa_func = generator.generate(ast);
     
-    // Debug: print SSA IR
-    // println!("{}", ssa_func);
+    println!("DEBUG: SSA IR generated: {}", ssa_func);
     
     // TODO: Optimization (NOP for now)
     
     // SSA Execution
     let mut executor = SsaExecutor::new();
     let exit_status = executor.execute_function(&ssa_func);
+    
+    println!("DEBUG: Execution completed with status: {}", exit_status);
     
     Ok(exit_status)
 }
