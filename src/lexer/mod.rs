@@ -5,6 +5,9 @@ use std::str::Chars;
 
 use super::tokens::{Token, TokenType};
 
+#[cfg(test)]
+mod tests;
+
 /// Lexer for tokenizing shell scripts
 pub struct Lexer<'a> {
     input: &'a str,
@@ -353,6 +356,104 @@ impl<'a> Iterator for Lexer<'a> {
         match token.token_type {
             TokenType::Eof => None,
             _ => Some(token),
+        }
+    }
+}#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_lexer_basic() {
+        let input = "echo hello world";
+        let mut lexer = Lexer::new(input);
+        
+        let tokens: Vec<_> = lexer.collect();
+        assert_eq!(tokens.len(), 3);
+        
+        if let TokenType::Word(word) = &tokens[0].token_type {
+            assert_eq!(word, "echo");
+        } else {
+            panic!("First token should be Word");
+        }
+        
+        if let TokenType::Word(word) = &tokens[1].token_type {
+            assert_eq!(word, "hello");
+        } else {
+            panic!("Second token should be Word");
+        }
+        
+        if let TokenType::Word(word) = &tokens[2].token_type {
+            assert_eq!(word, "world");
+        } else {
+            panic!("Third token should be Word");
+        }
+    }
+    
+    #[test]
+    fn test_lexer_operators() {
+        let input = "cmd1; cmd2 && cmd3 || cmd4";
+        let mut lexer = Lexer::new(input);
+        
+        let tokens: Vec<_> = lexer.collect();
+        assert_eq!(tokens.len(), 7);
+        
+        assert!(matches!(tokens[1].token_type, TokenType::Semicolon));
+        assert!(matches!(tokens[3].token_type, TokenType::AndIf));
+        assert!(matches!(tokens[5].token_type, TokenType::OrIf));
+    }
+    
+    #[test]
+    fn test_lexer_redirections() {
+        let input = "cmd > out.txt < in.txt >> append.txt";
+        let mut lexer = Lexer::new(input);
+        
+        let tokens: Vec<_> = lexer.collect();
+        assert_eq!(tokens.len(), 7);
+        
+        assert!(matches!(tokens[1].token_type, TokenType::Great));
+        assert!(matches!(tokens[3].token_type, TokenType::Less));
+        assert!(matches!(tokens[5].token_type, TokenType::DGreat));
+    }
+    
+    #[test]
+    fn test_lexer_quotes() {
+        let input = "echo 'hello world' \"test string\"";
+        let mut lexer = Lexer::new(input);
+        
+        let tokens: Vec<_> = lexer.collect();
+        assert_eq!(tokens.len(), 3);
+        
+        if let TokenType::Word(word) = &tokens[1].token_type {
+            assert_eq!(word, "'hello world'");
+        } else {
+            panic!("Second token should be quoted word");
+        }
+        
+        if let TokenType::Word(word) = &tokens[2].token_type {
+            assert_eq!(word, "\"test string\"");
+        } else {
+            panic!("Third token should be quoted word");
+        }
+    }
+    
+    #[test]
+    fn test_lexer_variables() {
+        let input = "VAR=value echo $HOME";
+        let mut lexer = Lexer::new(input);
+        
+        let tokens: Vec<_> = lexer.collect();
+        assert_eq!(tokens.len(), 4);
+        
+        if let TokenType::AssignmentWord(word) = &tokens[0].token_type {
+            assert_eq!(word, "VAR=value");
+        } else {
+            panic!("First token should be AssignmentWord");
+        }
+        
+        if let TokenType::Word(word) = &tokens[2].token_type {
+            assert_eq!(word, "$HOME");
+        } else {
+            panic!("Third token should be Word with $");
         }
     }
 }
