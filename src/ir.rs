@@ -1,10 +1,8 @@
 //! Intermediate Representation for shell execution
 //! This module provides the new SSA-based IR system
 
-pub mod ssa_ir;
-
 // Re-export SSA IR types for convenience
-pub use ssa_ir::{
+pub use crate::ssa_ir::{
     ValueId, ValueType, Value,
     Instruction, RedirectMode, CmpOp,
     BasicBlockId, BasicBlock,
@@ -38,8 +36,8 @@ impl IrProgram {
     }
 }
 
-impl fmt::Display for IrProgram {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for IrProgram {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(f, "IR Program:")?;
         for func in &self.functions {
             writeln!(f, "{}", func)?;
@@ -47,5 +45,3 @@ impl fmt::Display for IrProgram {
         Ok(())
     }
 }
-
-use std::fmt;
