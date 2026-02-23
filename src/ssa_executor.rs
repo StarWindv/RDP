@@ -229,7 +229,13 @@ impl SsaExecutor {
                     .map(|arg| self.get_value(*arg).as_string())
                     .collect();
                 
-                let status = self.execute_external_command(&cmd_str, &arg_strings);
+                // Check if it's a built-in command
+                let status = if self.builtins.is_builtin(&cmd_str) {
+                    self.builtins.execute(&cmd_str, &arg_strings, &mut self.env)
+                } else {
+                    self.execute_external_command(&cmd_str, &arg_strings)
+                };
+                
                 let value = ExecValue::ExitStatus(status);
                 self.set_value(*result, value.clone());
                 value

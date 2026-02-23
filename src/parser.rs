@@ -33,7 +33,13 @@ impl<'a> Parser<'a> {
     
     /// Parse the entire input into an AST
     pub fn parse(&mut self) -> Result<AstNode, ParseError> {
-        self.parse_command_list()
+        println!("DEBUG PARSER: Starting parse");
+        let result = self.parse_command_list();
+        match &result {
+            Ok(ast) => println!("DEBUG PARSER: Parse successful, AST type: {:?}", std::mem::discriminant(ast)),
+            Err(e) => println!("DEBUG PARSER: Parse failed: {}", e),
+        }
+        result
     }
     
     /// Parse a command list (multiple commands separated by ; or newline)

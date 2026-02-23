@@ -234,11 +234,9 @@ impl<'a> Lexer<'a> {
                     }
                     
                     // Check if it's a valid name (for variable names)
-                    if is_valid_var_name(&word) {
-                        Token::new(TokenType::Name(word.clone()), word, start_line, start_column)
-                    } else {
-                        Token::new(TokenType::Word(word.clone()), word, start_line, start_column)
-                    }
+                    // Command names should be Word, not Name
+                    // Name is only used for variable names in expansions
+                    Token::new(TokenType::Word(word.clone()), word, start_line, start_column)
                 }
             }
         } else {

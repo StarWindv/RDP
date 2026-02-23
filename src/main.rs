@@ -97,6 +97,9 @@ fn parse_and_execute_ssa(input: &str) -> Result<i32, String> {
     let tokens: Vec<_> = lexer.collect();
     
     println!("DEBUG: Lexer produced {} tokens", tokens.len());
+    for (i, token) in tokens.iter().enumerate() {
+        println!("DEBUG TOKEN {}: {:?}", i, token.token_type);
+    }
     
     // Parsing
     let mut parser = Parser::new(input);
