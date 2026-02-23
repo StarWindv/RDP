@@ -42,6 +42,20 @@ pub enum AstNode {
         tokens: Vec<Token>,
     },
     
+    /// Logical AND: left && right
+    LogicalAnd {
+        left: Box<AstNode>,
+        right: Box<AstNode>,
+        tokens: Vec<Token>,
+    },
+    
+    /// Logical OR: left || right
+    LogicalOr {
+        left: Box<AstNode>,
+        right: Box<AstNode>,
+        tokens: Vec<Token>,
+    },
+    
     /// Command list: cmd1; cmd2 & cmd3
     CommandList {
         commands: Vec<Box<AstNode>>,
@@ -294,6 +308,14 @@ impl fmt::Display for AstNode {
                     write!(f, "{}", cmd)?;
                 }
                 write!(f, ")")
+            }
+            
+            AstNode::LogicalAnd { left, right, .. } => {
+                write!(f, "LogicalAnd({} && {})", left, right)
+            }
+            
+            AstNode::LogicalOr { left, right, .. } => {
+                write!(f, "LogicalOr({} || {})", left, right)
             }
             
             AstNode::CommandList { commands, separators, .. } => {
