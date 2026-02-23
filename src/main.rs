@@ -1,4 +1,5 @@
-//! rs-dash-pro - A POSIX-compatible shell with modern architecture
+//! rs-dash-pro - A POSIX-compatible shell with modern SSA architecture
+//! Architecture: Lexer → Parser → SSA IR Generator → Optimizer → SSA Executor
 
 use std::env as std_env;
 use std::io::{self, Write};
@@ -8,18 +9,16 @@ mod tokens;
 mod lexer;
 mod ast;
 mod parser;
-mod ir;
-mod ir_generator;
-mod optimizer;
-mod executor;
+mod ssa_ir;
+mod ssa_ir_generator;
+mod ssa_executor;
 mod builtins;
 mod env;
 
 use lexer::Lexer;
 use parser::Parser;
-use ir_generator::IrGenerator;
-use optimizer::Optimizer;
-use executor::Executor;
+use ssa_ir_generator::SsaIrGenerator;
+use ssa_executor::SsaExecutor;
 
 /// Main function
 fn main() {
@@ -50,7 +49,7 @@ fn main() {
 
 /// Execute a command string
 fn execute_command_string(cmd_str: &str) -> i32 {
-    match parse_and_execute(cmd_str) {
+    match parse_and_execute_ssa(cmd_str) {
         Ok(exit_status) => exit_status,
         Err(e) => {
             eprintln!("Error: {}", e);
@@ -71,7 +70,7 @@ fn execute_script_file(filename: &str) -> i32 {
                     continue;
                 }
                 
-                match parse_and_execute(line) {
+                match parse_and_execute_ssa(line) {
                     Ok(status) => last_status = status,
                     Err(e) => {
                         eprintln!("Error: {}", e);
@@ -89,8 +88,8 @@ fn execute_script_file(filename: &str) -> i32 {
     }
 }
 
-/// Parse and execute a command line
-fn parse_and_execute(input: &str) -> Result<i32, String> {
+/// Parse and execute a command line using SSA architecture
+fn parse_and_execute_ssa(input: &str) -> Result<i32, String> {
     // Lexical analysis
     let lexer = Lexer::new(input);
     let _tokens: Vec<_> = lexer.collect();
@@ -107,27 +106,25 @@ fn parse_and_execute(input: &str) -> Result<i32, String> {
     // Debug: print AST
     // println!("AST: {}", ast);
     
-    // IR generation
-    let generator = IrGenerator;
-    let ir_program = generator.generate(ast);
+    // SSA IR generation
+    let mut generator = SsaIrGenerator::new();
+    let ssa_func = generator.generate(ast);
     
-    // Debug: print IR
-    // println!("{}", ir_program);
+    // Debug: print SSA IR
+    // println!("{}", ssa_func);
     
-    // Optimization
-    let optimizer = Optimizer::new();
-    let optimized_ir = optimizer.optimize(ir_program);
+    // TODO: Optimization (NOP for now)
     
-    // Execution
-    let mut executor = Executor::new();
-    let exit_status = executor.execute(&optimized_ir);
+    // SSA Execution
+    let mut executor = SsaExecutor::new();
+    let exit_status = executor.execute_function(&ssa_func);
     
     Ok(exit_status)
 }
 
 /// Run interactive shell
 fn run_interactive() {
-    println!("rs-dash-pro v{}", env!("CARGO_PKG_VERSION"));
+    println!("rs-dash-pro v{} (SSA Architecture)", env!("CARGO_PKG_VERSION"));
     println!("Type 'help' for help, 'exit' to quit");
     
     loop {
@@ -153,7 +150,7 @@ fn run_interactive() {
                     break;
                 }
                 
-                match parse_and_execute(line) {
+                match parse_and_execute_ssa(line) {
                     Ok(exit_status) => {
                         if exit_status != 0 {
                             eprintln!("Exit status: {}", exit_status);
@@ -174,7 +171,7 @@ fn run_interactive() {
 
 /// Show help message
 fn show_help() {
-    println!("rs-dash-pro - A POSIX-compatible shell");
+    println!("rs-dash-pro - A POSIX-compatible shell with SSA architecture");
     println!();
     println!("Usage:");
     println!("  rs-dash-pro                 Run interactive shell");
@@ -183,12 +180,14 @@ fn show_help() {
     println!("  rs-dash-pro --help         Show this help");
     println!("  rs-dash-pro --version      Show version");
     println!();
-    println!("Architecture: Lexer → Parser → IRGenerator → Optimizer → Executor");
+    println!("Architecture: Lexer → Parser → SSA IR Generator → Optimizer → SSA Executor");
+    println!("SSA: Static Single Assignment form for better optimization");
 }
 
 /// Show version information
 fn show_version() {
     println!("rs-dash-pro version {}", env!("CARGO_PKG_VERSION"));
     println!("A POSIX-compatible shell implementation in Rust");
-    println!("Architecture: Lexer → Parser → IRGenerator → Optimizer → Executor");
+    println!("Architecture: Lexer → Parser → SSA IR Generator → Optimizer → SSA Executor");
+    println!("SSA: Static Single Assignment form for better optimization");
 }

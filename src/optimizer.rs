@@ -1,8 +1,9 @@
 //! Optimizer for IR programs
+//! Currently just a NOP optimizer (no optimizations)
 
-use super::ir::{IrInstruction, IrProgram};
+use crate::ssa_ir::Function;
 
-/// Optimizer for IR programs
+/// Optimizer for SSA IR
 pub struct Optimizer;
 
 impl Optimizer {
@@ -11,16 +12,9 @@ impl Optimizer {
         Self
     }
     
-    /// Optimize an IR program
-    pub fn optimize(&self, program: IrProgram) -> IrProgram {
-        // For now, just return the program unchanged
-        // This is a placeholder for future optimization passes
-        program
-    }
-    
-    /// Optimize a single instruction
-    fn optimize_instruction(&self, instruction: Box<IrInstruction>) -> Box<IrInstruction> {
-        // For now, just return the instruction unchanged
-        instruction
+    /// Optimize a function (currently no optimizations)
+    pub fn optimize(&self, func: Function) -> Function {
+        // NOP optimizer - just return the function as-is
+        func
     }
 }

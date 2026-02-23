@@ -2,14 +2,11 @@
 //! Executes SSA IR programs with proper shell semantics
 
 use std::collections::HashMap;
-use std::process::{Command, Stdio};
-use std::fs::{File, OpenOptions};
-use std::io::{Write, Read};
-use std::os::unix::io::{FromRawFd, IntoRawFd};
+use std::process::Command;
 
 use crate::ssa_ir::{
     Function, BasicBlockId, ValueId, ValueType,
-    Instruction, RedirectMode, CmpOp,
+    Instruction, CmpOp,
 };
 use crate::builtins::Builtins;
 use crate::env::ShellEnv;
@@ -182,7 +179,7 @@ impl SsaExecutor {
     }
     
     /// Execute a single instruction
-    fn execute_instruction(&mut self, instr: &Instruction, func: &Function) -> ExecValue {
+    fn execute_instruction(&mut self, instr: &Instruction, _func: &Function) -> ExecValue {
         match instr {
             // Control flow (handled in execute_block)
             Instruction::Jump(_) |
@@ -190,7 +187,7 @@ impl SsaExecutor {
             Instruction::Return(_) => ExecValue::Void,
             
             // Variable operations
-            Instruction::AllocVar(name, result) => {
+            Instruction::AllocVar(_name, result) => {
                 let value = ExecValue::String(String::new());
                 self.set_value(*result, value.clone());
                 value
@@ -256,7 +253,7 @@ impl SsaExecutor {
                 ExecValue::ExitStatus(status)
             }
             
-            Instruction::Wait(pid, result) => {
+            Instruction::Wait(_pid, result) => {
                 // TODO: Implement wait
                 // For now, return success
                 let value = ExecValue::ExitStatus(0);
@@ -280,7 +277,7 @@ impl SsaExecutor {
                 ExecValue::Void
             }
             
-            Instruction::DupFd(old_fd, new_fd, result) => {
+            Instruction::DupFd(_old_fd, new_fd, result) => {
                 // TODO: Implement dup
                 // For now, just return new_fd
                 let value = ExecValue::FileDescriptor(*new_fd);
@@ -288,12 +285,12 @@ impl SsaExecutor {
                 value
             }
             
-            Instruction::CloseFd(fd) => {
+            Instruction::CloseFd(_fd) => {
                 // TODO: Implement close
                 ExecValue::Void
             }
             
-            Instruction::Redirect(fd, target, mode) => {
+            Instruction::Redirect(_fd, _target, _mode) => {
                 // TODO: Implement redirection
                 ExecValue::Void
             }
@@ -443,7 +440,7 @@ impl SsaExecutor {
             }
             
             // Phi function
-            Instruction::Phi(pairs, result) => {
+            Instruction::Phi(_pairs, _result) => {
                 // Phi functions are handled during block execution
                 // We should never execute them directly
                 ExecValue::Void

@@ -39,7 +39,7 @@ impl<'a> Parser<'a> {
     /// Parse a command list (multiple commands separated by ; or newline)
     fn parse_command_list(&mut self) -> Result<AstNode, ParseError> {
         let mut commands = Vec::new();
-        let mut separator = CommandSeparator::Semicolon;
+        let mut separators = Vec::new();
         let mut tokens = Vec::new();
         
         // Parse first command
@@ -51,7 +51,7 @@ impl<'a> Parser<'a> {
             match token.token_type {
                 TokenType::Semicolon => {
                     tokens.push(token.clone());
-                    separator = CommandSeparator::Semicolon;
+                    separators.push(CommandSeparator::Semicolon);
                     self.advance();
                     
                     // Check for empty command (;; is valid in case statements)
@@ -66,7 +66,7 @@ impl<'a> Parser<'a> {
                 }
                 TokenType::Newline => {
                     tokens.push(token.clone());
-                    separator = CommandSeparator::Newline;
+                    separators.push(CommandSeparator::Newline);
                     self.advance();
                     
                     // Parse next command if available
@@ -77,7 +77,7 @@ impl<'a> Parser<'a> {
                 }
                 TokenType::Ampersand => {
                     tokens.push(token.clone());
-                    separator = CommandSeparator::Ampersand;
+                    separators.push(CommandSeparator::Ampersand);
                     self.advance();
                     
                     // Parse next command if available
@@ -95,7 +95,7 @@ impl<'a> Parser<'a> {
         } else {
             Ok(AstNode::CommandList {
                 commands,
-                separator,
+                separators,
                 tokens,
             })
         }
@@ -252,7 +252,7 @@ impl<'a> Parser<'a> {
         // If no command name was found, check if we have assignments only
         if name.is_none() && !assignments.is_empty() {
             // Just assignments, no command - create a compound command with assignments
-            let mut commands: Vec<Box<AstNode>> = assignments.into_iter().map(|a| Box::new(a)).collect();
+            let commands: Vec<Box<AstNode>> = assignments.into_iter().map(|a| Box::new(a)).collect();
             return Ok(AstNode::CompoundCommand {
                 commands,
                 tokens: command_tokens,

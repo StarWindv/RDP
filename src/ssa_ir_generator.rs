@@ -4,7 +4,7 @@
 use crate::ast::{AstNode, AndOrOperator, CommandSeparator, RedirectType, CaseClause, ParameterOperation};
 use crate::ssa_ir::{
     IrBuilder, Function, BasicBlockId, ValueId, ValueType,
-    Instruction, RedirectMode, CmpOp,
+    Instruction, CmpOp,
 };
 
 /// SSA IR Generator
@@ -246,12 +246,13 @@ impl SsaIrGenerator {
             
             // Check current status
             let cond = self.create_value(ValueType::Boolean);
+            let zero_const = self.create_const_int(0);
             match operator {
                 AndOrOperator::AndIf => {
                     // AND: skip if previous command failed
                     self.add_instruction(Instruction::Cmp(
                         current_status,
-                        self.create_const_int(0),
+                        zero_const,
                         CmpOp::Eq,
                         cond,
                     ));
@@ -265,7 +266,7 @@ impl SsaIrGenerator {
                     // OR: skip if previous command succeeded
                     self.add_instruction(Instruction::Cmp(
                         current_status,
-                        self.create_const_int(0),
+                        zero_const,
                         CmpOp::Ne,
                         cond,
                     ));
@@ -362,7 +363,7 @@ impl SsaIrGenerator {
         condition: AstNode,
         then_branch: Vec<Box<AstNode>>,
         else_branch: Option<Vec<Box<AstNode>>>,
-        elif_branches: Vec<(Box<AstNode>, Vec<Box<AstNode>>)>,
+        _elif_branches: Vec<(Box<AstNode>, Vec<Box<AstNode>>)>,
     ) -> ValueId {
         let then_block = self.create_block_with_label("then".to_string());
         let else_block = self.create_block_with_label("else".to_string());
@@ -373,9 +374,10 @@ impl SsaIrGenerator {
         
         // Branch based on condition
         let cond = self.create_value(ValueType::Boolean);
+        let zero_const = self.create_const_int(0);
         self.add_instruction(Instruction::Cmp(
             cond_status,
-            self.create_const_int(0),
+            zero_const,
             CmpOp::Eq,
             cond,
         ));
@@ -413,7 +415,7 @@ impl SsaIrGenerator {
         result
     }
     
-    fn generate_case_statement(&mut self, word: &str, cases: Vec<CaseClause>) -> ValueId {
+    fn generate_case_statement(&mut self, _word: &str, _cases: Vec<CaseClause>) -> ValueId {
         // TODO: Implement case statement
         // For now, return success
         let result = self.create_value(ValueType::ExitStatus);
@@ -433,9 +435,10 @@ impl SsaIrGenerator {
         self.set_current_block(cond_block);
         let cond_status = self.generate_node(condition.clone());
         let cond = self.create_value(ValueType::Boolean);
+        let zero_const = self.create_const_int(0);
         self.add_instruction(Instruction::Cmp(
             cond_status,
-            self.create_const_int(0),
+            zero_const,
             CmpOp::Eq,
             cond,
         ));
@@ -470,9 +473,10 @@ impl SsaIrGenerator {
         self.set_current_block(cond_block);
         let cond_status = self.generate_node(condition.clone());
         let cond = self.create_value(ValueType::Boolean);
+        let zero_const = self.create_const_int(0);
         self.add_instruction(Instruction::Cmp(
             cond_status,
-            self.create_const_int(0),
+            zero_const,
             CmpOp::Ne,
             cond,
         ));
@@ -500,7 +504,7 @@ impl SsaIrGenerator {
         self.add_instruction(Instruction::AllocVar(variable.to_string(), var_val));
         
         let loop_start = self.create_block_with_label("for_start".to_string());
-        let loop_body = self.create_block_with_label("for_body".to_string());
+        let _loop_body = self.create_block_with_label("for_body".to_string());
         let loop_end = self.create_block_with_label("for_end".to_string());
         
         // Jump to start
@@ -536,7 +540,7 @@ impl SsaIrGenerator {
         self.generate_for_loop(variable, items, body)
     }
     
-    fn generate_function_definition(&mut self, name: &str, body: Vec<Box<AstNode>>) -> ValueId {
+    fn generate_function_definition(&mut self, _name: &str, _body: Vec<Box<AstNode>>) -> ValueId {
         // TODO: Implement function definition
         // For now, just return success
         let result = self.create_value(ValueType::ExitStatus);
@@ -544,7 +548,7 @@ impl SsaIrGenerator {
         result
     }
     
-    fn generate_redirection(&mut self, command: AstNode, redirect_type: RedirectType, target: &str, fd: Option<i32>) -> ValueId {
+    fn generate_redirection(&mut self, command: AstNode, _redirect_type: RedirectType, _target: &str, _fd: Option<i32>) -> ValueId {
         // Generate command first
         let cmd_result = self.generate_node(command);
         
@@ -559,7 +563,7 @@ impl SsaIrGenerator {
         self.generate_node(command)
     }
     
-    fn generate_command_substitution(&mut self, command: AstNode, backticks: bool) -> ValueId {
+    fn generate_command_substitution(&mut self, command: AstNode, _backticks: bool) -> ValueId {
         // TODO: Implement command substitution
         // For now, just execute the command
         self.generate_node(command)

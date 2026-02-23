@@ -438,7 +438,8 @@ impl<'a> Lexer<'a> {
                 
                 // Return the accumulated content as a word token
                 let content = self.here_doc_content.take().unwrap();
-                return Token::new(TokenType::Word(content), content, start_line, start_column);
+                let content_clone = content.clone();
+                return Token::new(TokenType::Word(content), content_clone, start_line, start_column);
             }
         }
         
