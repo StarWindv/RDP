@@ -1,0 +1,26 @@
+[package]
+name = "rs-dash-pro"
+version = "0.1.0"
+edition = "2021"
+description = "A POSIX-compatible shell implementation in Rust with modern architecture"
+authors = ["rs-dash-pro contributors"]
+license = "MIT"
+readme = "README.md"
+
+[dependencies]
+anyhow = "1.0"
+thiserror = "1.0"
+log = "0.4"
+env_logger = "0.11"
+once_cell = "1.19"
+lazy_static = "1.4"
+
+[dev-dependencies]
+tempfile = "3.10"
+assert_cmd = "2.0"
+predicates = "3.0"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
