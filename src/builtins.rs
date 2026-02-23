@@ -1,9 +1,8 @@
 //! Built-in shell commands
 
-use std::env;
-use std::io::{self, Write};
+use std::io;
 
-use crate::utils::env::ShellEnv;
+use crate::env::ShellEnv;
 
 /// Built-in command handler
 pub struct Builtins;
@@ -30,19 +29,19 @@ impl Builtins {
     fn cd(&self, args: &[String], env: &mut ShellEnv) -> i32 {
         let target = if args.is_empty() {
             // Go to home directory
-            env.get_var("HOME").map(|s| s.as_str()).unwrap_or("/")
+            env.get_var("HOME").cloned().unwrap_or_else(|| "/".to_string())
         } else if args[0] == "-" {
             // Go to previous directory (OLDPWD)
-            env.get_var("OLDPWD").map(|s| s.as_str()).unwrap_or(&env.current_dir)
+            env.get_var("OLDPWD").cloned().unwrap_or_else(|| env.current_dir.clone())
         } else {
-            &args[0]
+            args[0].clone()
         };
         
         // Save current directory as OLDPWD
         env.set_var("OLDPWD".to_string(), env.current_dir.clone());
         
         // Change directory
-        match std::env::set_current_dir(target) {
+        match std::env::set_current_dir(&target) {
             Ok(_) => {
                 // Update current directory in environment
                 if let Ok(cwd) = std::env::current_dir() {

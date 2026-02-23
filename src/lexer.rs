@@ -3,7 +3,7 @@
 use std::iter::Peekable;
 use std::str::Chars;
 
-use super::tokens::{Token, TokenType};
+use crate::tokens::{Token, TokenType};
 
 #[cfg(test)]
 mod tests;
@@ -143,7 +143,7 @@ impl<'a> Lexer<'a> {
                     }
                     // Otherwise, it's a regular word starting with $
                     let word = self.read_word(true);
-                    Token::new(TokenType::Word(word), format!("${}", &word[1..]), start_line, start_column)
+                    Token::new(TokenType::Word(word.clone()), format!("${}", &word[1..]), start_line, start_column)
                 }
                 '#' => {
                     // Comment, skip to end of line
@@ -203,7 +203,7 @@ impl<'a> Lexer<'a> {
             }
         }
         
-        Token::new(TokenType::Word(content), content, start_line, start_column)
+        Token::new(TokenType::Word(content.clone()), content, start_line, start_column)
     }
     
     /// Read a word from input
@@ -344,7 +344,9 @@ impl<'a> Lexer<'a> {
     
     /// Get current position in input
     fn current_position(&self) -> usize {
-        self.input.len() - self.chars.as_str().len()
+        // Calculate position by subtracting remaining chars length from total length
+        let remaining_str: String = self.chars.clone().collect();
+        self.input.len() - remaining_str.len()
     }
 }
 

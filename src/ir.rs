@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::lexer::tokens::Token;
+use crate::tokens::Token;
 
 /// IR instruction types
 #[derive(Debug, Clone)]

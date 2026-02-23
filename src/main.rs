@@ -1,27 +1,30 @@
 //! rs-dash-pro - A POSIX-compatible shell with modern architecture
 
-use std::env;
+use std::env as std_env;
 use std::io::{self, Write};
 use std::process;
 
+mod tokens;
 mod lexer;
+mod ast;
 mod parser;
 mod ir;
+mod ir_generator;
 mod optimizer;
 mod executor;
 mod builtins;
-mod utils;
+mod env;
 
 use lexer::Lexer;
 use parser::Parser;
-use ir::IrGenerator;
+use ir_generator::IrGenerator;
 use optimizer::Optimizer;
 use executor::Executor;
 
 /// Main function
 fn main() {
     // Get command line arguments
-    let args: Vec<String> = env::args().collect();
+    let args: Vec<String> = std_env::args().collect();
     
     if args.len() > 1 {
         if args[1] == "-c" && args.len() > 2 {
@@ -90,7 +93,7 @@ fn execute_script_file(filename: &str) -> i32 {
 fn parse_and_execute(input: &str) -> Result<i32, String> {
     // Lexical analysis
     let lexer = Lexer::new(input);
-    let tokens: Vec<_> = lexer.collect();
+    let _tokens: Vec<_> = lexer.collect();
     
     // Debug: print tokens
     // for token in &tokens {

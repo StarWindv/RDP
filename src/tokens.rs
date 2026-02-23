@@ -230,14 +230,14 @@ impl fmt::Display for TokenType {
             TokenType::Function => write!(f, "function"),
             TokenType::LeftParen => write!(f, "("),
             TokenType::RightParen => write!(f, ")"),
-            TokenType::LeftBrace => write!(f, "{"),
-            TokenType::RightBrace => write!(f, "}"),
+            TokenType::LeftBrace => write!(f, "{{"),
+            TokenType::RightBrace => write!(f, "}}"),
             TokenType::Newline => write!(f, "\\n"),
             TokenType::Eof => write!(f, "EOF"),
             TokenType::Error(msg) => write!(f, "Error({})", msg),
             TokenType::DollarLeftParen => write!(f, "$("),
             TokenType::Backtick => write!(f, "`"),
-            TokenType::DollarLeftBrace => write!(f, "${"),
+            TokenType::DollarLeftBrace => write!(f, "${{"),
         }
     }
 }

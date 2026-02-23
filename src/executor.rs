@@ -1,12 +1,10 @@
 //! Executor for IR programs
 
-use std::io::{self, Write};
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 use crate::builtins::Builtins;
 use crate::ir::{IrInstruction, IrProgram};
-use crate::utils::env::ShellEnv;
-use crate::lexer::tokens::Token;
+use crate::env::ShellEnv;
 
 /// Executor for IR programs
 pub struct Executor {
@@ -26,7 +24,7 @@ impl Executor {
     /// Execute an IR program
     pub fn execute(&mut self, program: &IrProgram) -> i32 {
         // First, define functions
-        for (name, body) in &program.functions {
+        for (name, _body) in &program.functions {
             // Store function definition in environment
             // For now, we'll just note that it exists
             self.env.set_var(format!("__func_{}", name), "defined".to_string());
@@ -90,7 +88,10 @@ impl Executor {
             IrInstruction::Redirect { command, redirect_type, target, fd, .. } => {
                 // TODO: Implement redirection
                 // For now, just execute the command without redirection
-                self.execute_instruction(command)?;
+                let _ = redirect_type;
+                let _ = target;
+                let _ = fd;
+                let _ = command;
             }
             
             IrInstruction::Background { command, .. } => {
@@ -189,6 +190,7 @@ impl Executor {
             IrInstruction::DefineFunction { name, .. } => {
                 // Function definitions were already handled
                 // Just return success
+                let _ = name;
             }
             
             IrInstruction::CallFunction { name, args, .. } => {

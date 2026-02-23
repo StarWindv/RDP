@@ -3,13 +3,13 @@
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
-use crate::lexer::{Lexer, tokens::{Token, TokenType}};
-
-use super::ast::{AstNode, CommandSeparator, ParseError, RedirectType};
+use crate::lexer::Lexer;
+use crate::tokens::{Token, TokenType};
+use crate::ast::{AstNode, CommandSeparator, ParseError, RedirectType};
 
 /// Parser for shell scripts
 pub struct Parser<'a> {
-    lexer: Lexer<'a>,
+    input: &'a str,
     tokens: Peekable<IntoIter<Token>>,
     current_token: Option<Token>,
 }
@@ -18,11 +18,12 @@ impl<'a> Parser<'a> {
     /// Create a new parser for the given input
     pub fn new(input: &'a str) -> Self {
         let lexer = Lexer::new(input);
-        let tokens = lexer.collect::<Vec<_>>().into_iter().peekable();
+        let tokens: Vec<_> = lexer.collect::<Vec<_>>();
+        let tokens_iter = tokens.into_iter().peekable();
         
         let mut parser = Self {
-            lexer,
-            tokens,
+            input,
+            tokens: tokens_iter,
             current_token: None,
         };
         
@@ -297,8 +298,9 @@ impl<'a> Parser<'a> {
     fn parse_redirections(&mut self, command: AstNode) -> Result<AstNode, ParseError> {
         let mut current_command = command;
         
-        while let Some(token) = &self.current_token {
-            let (redirect_type, fd, target) = match &token.token_type {
+        while let Some(token) = self.current_token.clone() {
+            let token_type = token.token_type.clone();
+            let (redirect_type, fd, target) = match token_type {
                 TokenType::Less => (RedirectType::Input, None, self.parse_redirect_target()?),
                 TokenType::Great => (RedirectType::Output, None, self.parse_redirect_target()?),
                 TokenType::DLess => (RedirectType::HereDoc, None, self.parse_redirect_target()?),
@@ -316,7 +318,7 @@ impl<'a> Parser<'a> {
                 redirect_type,
                 target,
                 fd,
-                token: token.clone(),
+                token,
             };
         }
         
@@ -327,8 +329,8 @@ impl<'a> Parser<'a> {
     fn parse_redirect_target(&mut self) -> Result<String, ParseError> {
         self.advance(); // Skip redirect operator
         
-        if let Some(token) = &self.current_token {
-            if let TokenType::Word(word) = &token.token_type {
+        if let Some(token) = self.current_token.clone() {
+            if let TokenType::Word(word) = token.token_type {
                 self.advance();
                 return Ok(word.clone());
             }
@@ -547,8 +549,8 @@ impl<'a> Parser<'a> {
         self.advance();
         
         // Parse variable name
-        let variable = if let Some(token) = &self.current_token {
-            if let TokenType::Word(name) = &token.token_type {
+        let variable = if let Some(token) = self.current_token.clone() {
+            if let TokenType::Word(name) = token.token_type {
                 self.advance();
                 name.clone()
             } else {
@@ -673,8 +675,8 @@ impl<'a> Parser<'a> {
         self.advance();
         
         // Parse function name
-        let name = if let Some(token) = &self.current_token {
-            if let TokenType::Word(name) = &token.token_type {
+        let name = if let Some(token) = self.current_token.clone() {
+            if let TokenType::Word(name) = token.token_type {
                 self.advance();
                 name.clone()
             } else {

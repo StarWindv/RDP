@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::lexer::tokens::Token;
+use crate::tokens::Token;
 
 /// AST node types
 #[derive(Debug, Clone)]

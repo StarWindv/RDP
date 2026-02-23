@@ -1,8 +1,7 @@
 //! IR Generator: Converts AST to IR
 
-use crate::parser::ast::{AstNode, CommandSeparator, RedirectType};
-
-use super::ir::{IrInstruction, IrProgram, RedirectType as IrRedirectType};
+use crate::ast::{AstNode, RedirectType};
+use crate::ir::{IrInstruction, IrProgram, RedirectType as IrRedirectType};
 
 /// IR Generator
 pub struct IrGenerator;
@@ -11,7 +10,9 @@ impl IrGenerator {
     /// Convert AST to IR
     pub fn generate(&self, ast: AstNode) -> IrProgram {
         let mut program = IrProgram::new();
-        self.generate_node(ast, &mut program);
+        if let Some(instruction) = self.generate_node(ast, &mut program) {
+            program.add_instruction(*instruction);
+        }
         program
     }
     
