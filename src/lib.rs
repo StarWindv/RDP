@@ -12,6 +12,9 @@ pub mod ssa_executor;
 pub mod builtins;
 pub mod env;
 
+#[cfg(test)]
+mod enhanced_lexer_tests;
+
 // Re-export commonly used types
 pub use tokens::{Token, TokenType};
 pub use lexer::Lexer;
