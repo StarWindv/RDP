@@ -3,7 +3,7 @@
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
-use crate::enhanced_lexer::EnhancedLexer;
+use crate::modules::lexer::Lexer;
 use crate::tokens::{Token, TokenType};
 use crate::ast::{AstNode, CommandSeparator, ParseError, RedirectType};
 
@@ -17,7 +17,7 @@ pub struct Parser<'a> {
 impl<'a> Parser<'a> {
     /// Create a new parser for the given input
     pub fn new(input: &'a str) -> Self {
-        let lexer = EnhancedLexer::new(input);
+        let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect::<Vec<_>>();
         let tokens_iter = tokens.into_iter().peekable();
         

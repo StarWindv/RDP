@@ -1,14 +1,11 @@
-//! rs-dash-pro - A POSIX-compatible shell with modern SSA architecture
-//! Architecture: Lexer → Parser → SSA IR Generator → Optimizer → SSA Executor
-
 use std::env as std_env;
 use std::io::{self, Write};
 use std::process;
 
-use rs_dash_pro::enhanced_lexer::EnhancedLexer;
-use rs_dash_pro::parser::Parser;
-use rs_dash_pro::ssa_ir_generator::SsaIrGenerator;
-use rs_dash_pro::ssa_executor::SsaExecutor;
+use rs_dash_pro::modules::lexer::Lexer;
+use rs_dash_pro::modules::parser::Parser;
+use rs_dash_pro::modules::ssa_ir_generator::SsaIrGenerator;
+use rs_dash_pro::modules::ssa_executor::SsaExecutor;
 
 /// Main function
 fn main() {
@@ -82,11 +79,11 @@ fn execute_script_file(filename: &str) -> i32 {
 fn parse_and_execute_ssa(input: &str) -> Result<i32, String> {
     println!("DEBUG: Parsing input: {}", input);
     
-    // Lexical analysis with enhanced lexer
-    let lexer = EnhancedLexer::new(input);
+    // Lexical analysis with lexer
+    let lexer = Lexer::new(input);
     let tokens: Vec<_> = lexer.collect();
     
-    println!("DEBUG: EnhancedLexer produced {} tokens", tokens.len());
+    println!("DEBUG: Lexer produced {} tokens", tokens.len());
     for (i, token) in tokens.iter().enumerate() {
         println!("DEBUG TOKEN {}: {:?}", i, token.token_type);
     }
@@ -172,7 +169,7 @@ fn show_help() {
     println!("  rs-dash-pro --help         Show this help");
     println!("  rs-dash-pro --version      Show version");
     println!();
-    println!("Architecture: EnhancedLexer → Parser → SSA IR Generator → Optimizer → SSA Executor");
+    println!("Architecture: Lexer → Parser → SSA IR Generator → Optimizer → SSA Executor");
     println!("SSA: Static Single Assignment form for better optimization");
     println!("Enhanced Lexer: Full POSIX Shell tokenization support");
 }
@@ -181,7 +178,7 @@ fn show_help() {
 fn show_version() {
     println!("rs-dash-pro version {}", env!("CARGO_PKG_VERSION"));
     println!("A POSIX-compatible shell implementation in Rust");
-    println!("Architecture: EnhancedLexer → Parser → SSA IR Generator → Optimizer → SSA Executor");
+    println!("Architecture: Lexer → Parser → SSA IR Generator → Optimizer → SSA Executor");
     println!("SSA: Static Single Assignment form for better optimization");
     println!("Enhanced Lexer: Full POSIX Shell tokenization support");
 }

@@ -1,6 +1,6 @@
 [package]
 name = "rs-dash-pro"
-version = "0.1.0"
+version = "0.0.2+Canary"
 edition = "2021"
 description = "A POSIX-compatible shell implementation in Rust with modern architecture"
 authors = ["rs-dash-pro contributors"]
@@ -24,3 +24,4 @@ predicates = "3.0"
 lto = true
 codegen-units = 1
 opt-level = 3
+

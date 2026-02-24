@@ -4,7 +4,7 @@ use std::fs;
 
 use crate::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// . (dot) builtin command
 pub struct Dot;

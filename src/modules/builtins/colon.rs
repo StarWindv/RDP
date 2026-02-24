@@ -2,7 +2,7 @@
 
 use crate::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// : (colon) builtin command
 pub struct Colon;

@@ -4,7 +4,7 @@
 use std::iter::Peekable;
 use std::str::Chars;
 
-use crate::tokens::{Token, TokenType, is_valid_var_name, is_reserved_word, reserved_word_token_type};
+use super::tokens::{Token, TokenType, is_valid_var_name, is_reserved_word, reserved_word_token_type};
 
 #[cfg(test)]
 mod tests;

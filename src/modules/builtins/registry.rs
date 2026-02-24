@@ -4,7 +4,28 @@ use std::collections::HashMap;
 
 use crate::env::ShellEnv;
 
-use super::*;
+// Import only existing modules
+use super::dot::Dot;
+use super::colon::Colon;
+use super::break_cmd::Break;
+use super::continue_cmd::Continue;
+use super::eval::Eval;
+use super::exec::Exec;
+use super::exit::Exit;
+use super::export::Export;
+use super::readonly::Readonly;
+use super::set::Set;
+use super::shift::Shift;
+use super::times::Times;
+use super::trap::Trap;
+use super::unset::Unset;
+use super::alias::Alias;
+use super::cd::Cd;
+use super::echo::Echo;
+use super::false_cmd::False;
+use super::pwd::Pwd;
+use super::true_cmd::True;
+use super::help::Help;
 
 /// Trait for built-in commands
 pub trait BuiltinCommand {
@@ -24,7 +45,7 @@ impl BuiltinRegistry {
             commands: HashMap::new(),
         };
         
-        // Register all builtin commands
+        // Register all builtin commands (only existing ones)
         registry.register(Box::new(Dot));
         registry.register(Box::new(Colon));
         registry.register(Box::new(Break));
@@ -41,25 +62,11 @@ impl BuiltinRegistry {
         registry.register(Box::new(Unset));
         
         registry.register(Box::new(Alias));
-        registry.register(Box::new(Bg));
         registry.register(Box::new(Cd));
-        registry.register(Box::new(Command));
         registry.register(Box::new(Echo));
         registry.register(Box::new(False));
-        registry.register(Box::new(Fg));
-        registry.register(Box::new(Getopts));
-        registry.register(Box::new(Hash));
-        registry.register(Box::new(Jobs));
-        registry.register(Box::new(Kill));
         registry.register(Box::new(Pwd));
-        registry.register(Box::new(Read));
         registry.register(Box::new(True));
-        registry.register(Box::new(Type));
-        registry.register(Box::new(Umask));
-        registry.register(Box::new(Ulimit));
-        registry.register(Box::new(Wait));
-        registry.register(Box::new(Printf));
-        registry.register(Box::new(Local));
         registry.register(Box::new(Help));
         
         registry
