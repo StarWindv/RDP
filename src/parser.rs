@@ -226,7 +226,7 @@ impl<'a> Parser<'a> {
         // Parse command name and arguments
         while let Some(token) = &self.current_token {
             match &token.token_type {
-                TokenType::Word(word) => {
+                TokenType::Word(word) | TokenType::Name(word) => {
                     if name.is_none() {
                         name = Some(word.clone());
                     } else {
