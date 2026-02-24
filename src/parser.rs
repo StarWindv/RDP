@@ -243,9 +243,7 @@ impl<'a> Parser<'a> {
                 TokenType::At |
                 TokenType::Plus |
                 TokenType::DollarDLeftParen |
-                TokenType::DRightParen |
-                TokenType::LessLeftParen |
-                TokenType::GreatLeftParen => {
+                TokenType::DRightParen => {
                     // Pattern matching or special operators, treat as word for now
                     if name.is_none() {
                         name = Some(token.lexeme.clone());

@@ -143,4 +143,43 @@ impl ShellEnv {
         
         None
     }
+    
+    /// Check if a variable is exported
+    pub fn is_exported(&self, name: &str) -> bool {
+        self.vars.contains_key(&format!("__exported_{}", name))
+    }
+    
+    /// Check if a variable is read-only
+    pub fn is_readonly(&self, name: &str) -> bool {
+        self.vars.contains_key(&format!("__readonly_{}", name))
+    }
+    
+    /// Check if a variable is an alias
+    pub fn is_alias(&self, name: &str) -> bool {
+        self.vars.contains_key(&format!("__alias_{}", name))
+    }
+    
+    /// Get alias value
+    pub fn get_alias(&self, name: &str) -> Option<&String> {
+        self.vars.get(&format!("__alias_{}", name))
+    }
+    
+    /// Check if a variable is a function
+    pub fn is_function(&self, name: &str) -> bool {
+        self.vars.contains_key(&format!("__function_{}", name))
+    }
+    
+    /// Get function body
+    pub fn get_function(&self, name: &str) -> Option<&String> {
+        self.vars.get(&format!("__function_{}", name))
+    }
+    
+    /// Get positional arguments
+    pub fn get_positional_args(&self) -> Vec<String> {
+        if let Some(args_str) = self.get_var("__positional_args") {
+            args_str.split_whitespace().map(|s| s.to_string()).collect()
+        } else {
+            Vec::new()
+        }
+    }
 }

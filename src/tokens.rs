@@ -334,8 +334,6 @@ impl fmt::Display for TokenType {
             TokenType::RightBracket => write!(f, "]"),
             TokenType::DollarDLeftParen => write!(f, "$(("),
             TokenType::DRightParen => write!(f, "))"),
-            TokenType::LessLeftParen => write!(f, "<("),
-            TokenType::GreatLeftParen => write!(f, ">("),
             TokenType::HereDocDelimiter(s) => write!(f, "HereDocDelimiter({})", s),
             TokenType::Eof => write!(f, "EOF"),
             TokenType::Error(msg) => write!(f, "Error({})", msg),
