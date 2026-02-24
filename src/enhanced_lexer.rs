@@ -229,9 +229,9 @@ impl<'a> EnhancedLexer<'a> {
                     Token::new(TokenType::RightBracket, "]".to_string(), start_line, start_column)
                 }
                 
-                '@' => {
+                '+' => {
                     self.consume_char();
-                    Token::new(TokenType::At, "@".to_string(), start_line, start_column)
+                    Token::new(TokenType::Plus, "+".to_string(), start_line, start_column)
                 }
                 
                 // ============================================
