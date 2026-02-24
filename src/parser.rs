@@ -237,23 +237,74 @@ impl<'a> Parser<'a> {
                         self.advance();
                     }
                 }
-                TokenType::Star |
-                TokenType::Question |
-                TokenType::LeftBracket |
-                TokenType::RightBracket |
-                TokenType::Exclamation |
-                TokenType::At |
-                TokenType::Plus |
-                TokenType::DollarDLeftParen |
-                TokenType::DRightParen => {
-                    // Pattern matching or special operators, treat as word for now
-                    if name.is_none() {
-                        name = Some(token.lexeme.clone());
-                    } else {
-                        args.push(token.lexeme.clone());
-                    }
-                    command_tokens.push(token.clone());
+                TokenType::Dollar => {
+                    // Variable expansion: $VAR or ${VAR}
+                    let mut var_name = String::new();
+                    let dollar_token = token.clone();
+                    command_tokens.push(dollar_token);
                     self.advance();
+                    
+                    // Check for ${VAR} syntax
+                    if self.check_token_type(&TokenType::LeftBrace) {
+                        let lbrace_token = self.current_token.clone().unwrap();
+                        command_tokens.push(lbrace_token);
+                        self.advance();
+                        
+                        // Read variable name until }
+                        while let Some(token) = &self.current_token {
+                            if token.token_type == TokenType::RightBrace {
+                                let rbrace_token = token.clone();
+                                command_tokens.push(rbrace_token);
+                                self.advance();
+                                break;
+                            } else if let TokenType::Word(part) = &token.token_type {
+                                var_name.push_str(part);
+                                command_tokens.push(token.clone());
+                                self.advance();
+                            } else {
+                                break;
+                            }
+                        }
+                        
+                        // Create expanded argument
+                        let expanded = format!("${{{}}}", var_name);
+                        if name.is_none() {
+                            name = Some(expanded);
+                        } else {
+                            args.push(expanded);
+                        }
+                    } else {
+                        // $VAR syntax
+                        if let Some(next_token) = &self.current_token {
+                            if let TokenType::Word(word) = &next_token.token_type {
+                                var_name = word.clone();
+                                command_tokens.push(next_token.clone());
+                                self.advance();
+                                
+                                // Create expanded argument
+                                let expanded = format!("${}", var_name);
+                                if name.is_none() {
+                                    name = Some(expanded);
+                                } else {
+                                    args.push(expanded);
+                                }
+                            } else {
+                                // Just $, treat as literal
+                                if name.is_none() {
+                                    name = Some("$".to_string());
+                                } else {
+                                    args.push("$".to_string());
+                                }
+                            }
+                        } else {
+                            // Just $ at end
+                            if name.is_none() {
+                                name = Some("$".to_string());
+                            } else {
+                                args.push("$".to_string());
+                            }
+                        }
+                    }
                 }
                 _ => {
                     // Unknown token type, break

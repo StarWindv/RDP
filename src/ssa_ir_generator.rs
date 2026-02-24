@@ -183,6 +183,11 @@ impl SsaIrGenerator {
             })
             .collect();
         
+        // Check if it's a built-in command
+        // TODO: Actually check if it's a builtin
+        // For now, we'll treat all commands as external and let the executor handle builtins
+        // But we need to add builtin support in the executor
+        
         // Generate call instruction
         self.add_instruction(Instruction::CallExternal(
             name.to_string(),

@@ -45,7 +45,9 @@ impl ShellEnv {
         self.vars.remove(name);
     }
     
+    /// Expand variables in a string
     pub fn expand_variables(&self, input: &str) -> String {
+        println!("DEBUG EXPAND: expanding '{}'", input);
         let mut result = String::new();
         let mut chars = input.chars().peekable();
         
@@ -65,8 +67,12 @@ impl ShellEnv {
                             chars.next();
                         }
                         
+                        println!("DEBUG EXPAND: found ${{{}}}", var_name);
                         if let Some(value) = self.get_var(&var_name) {
+                            println!("DEBUG EXPAND: value = '{}'", value);
                             result.push_str(value);
+                        } else {
+                            println!("DEBUG EXPAND: variable not found");
                         }
                     } else if next.is_ascii_alphanumeric() || next == '_' {
                         // $var syntax
@@ -80,8 +86,12 @@ impl ShellEnv {
                             }
                         }
                         
+                        println!("DEBUG EXPAND: found ${}", var_name);
                         if let Some(value) = self.get_var(&var_name) {
+                            println!("DEBUG EXPAND: value = '{}'", value);
                             result.push_str(value);
+                        } else {
+                            println!("DEBUG EXPAND: variable not found");
                         }
                     } else {
                         // Just a literal $
@@ -96,6 +106,7 @@ impl ShellEnv {
             }
         }
         
+        println!("DEBUG EXPAND: result = '{}'", result);
         result
     }
     

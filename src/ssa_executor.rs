@@ -214,7 +214,11 @@ impl SsaExecutor {
             // Command execution
             Instruction::CallBuiltin(name, args, result) => {
                 let arg_strings: Vec<String> = args.iter()
-                    .map(|arg| self.get_value(*arg).as_string())
+                    .map(|arg| {
+                        let arg_val = self.get_value(*arg);
+                        // Expand variables in the argument
+                        self.env.expand_variables(&arg_val.as_string())
+                    })
                     .collect();
                 
                 let status = self.builtins.execute(name, &arg_strings, &mut self.env);
@@ -226,7 +230,11 @@ impl SsaExecutor {
             Instruction::CallExternal(cmd, args, result) => {
                 let cmd_str = cmd.clone();
                 let arg_strings: Vec<String> = args.iter()
-                    .map(|arg| self.get_value(*arg).as_string())
+                    .map(|arg| {
+                        let arg_val = self.get_value(*arg);
+                        // Expand variables in the argument
+                        self.env.expand_variables(&arg_val.as_string())
+                    })
                     .collect();
                 
                 // Check if it's a built-in command
