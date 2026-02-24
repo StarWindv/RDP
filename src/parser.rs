@@ -3,7 +3,7 @@
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
-use crate::lexer::Lexer;
+use crate::enhanced_lexer::EnhancedLexer;
 use crate::tokens::{Token, TokenType};
 use crate::ast::{AstNode, CommandSeparator, ParseError, RedirectType};
 
@@ -17,7 +17,7 @@ pub struct Parser<'a> {
 impl<'a> Parser<'a> {
     /// Create a new parser for the given input
     pub fn new(input: &'a str) -> Self {
-        let lexer = Lexer::new(input);
+        let lexer = EnhancedLexer::new(input);
         let tokens: Vec<_> = lexer.collect::<Vec<_>>();
         let tokens_iter = tokens.into_iter().peekable();
         
@@ -235,23 +235,30 @@ impl<'a> Parser<'a> {
                     command_tokens.push(token.clone());
                     self.advance();
                 }
-                TokenType::Less |
-                TokenType::Great |
-                TokenType::DLess |
-                TokenType::DGreat |
-                TokenType::LessAnd |
-                TokenType::GreatAnd |
-                TokenType::LessGreat |
-                TokenType::DLessDash |
-                TokenType::Clobber => {
-                    // Redirection, handled later
+                TokenType::Star |
+                TokenType::Question |
+                TokenType::LeftBracket |
+                TokenType::RightBracket |
+                TokenType::Exclamation |
+                TokenType::At |
+                TokenType::Plus |
+                TokenType::DollarDLeftParen |
+                TokenType::DRightParen |
+                TokenType::LessLeftParen |
+                TokenType::GreatLeftParen => {
+                    // Pattern matching or special operators, treat as word for now
+                    if name.is_none() {
+                        name = Some(token.lexeme.clone());
+                    } else {
+                        args.push(token.lexeme.clone());
+                    }
+                    command_tokens.push(token.clone());
+                    self.advance();
+                }
+                _ => {
+                    // Unknown token type, break
                     break;
                 }
-                TokenType::Ampersand => {
-                    // Background operator, handled later
-                    break;
-                }
-                _ => break,
             }
         }
         
