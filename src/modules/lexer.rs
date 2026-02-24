@@ -234,9 +234,11 @@ impl<'a> Lexer<'a> {
                     }
                     
                     // Check if it's a valid name (for variable names)
-                    // Command names should be Word, not Name
-                    // Name is only used for variable names in expansions
-                    Token::new(TokenType::Word(word.clone()), word, start_line, start_column)
+                    if is_valid_var_name(&word) {
+                        Token::new(TokenType::Name(word.clone()), word, start_line, start_column)
+                    } else {
+                        Token::new(TokenType::Word(word.clone()), word, start_line, start_column)
+                    }
                 }
             }
         } else {
@@ -436,8 +438,7 @@ impl<'a> Lexer<'a> {
                 
                 // Return the accumulated content as a word token
                 let content = self.here_doc_content.take().unwrap();
-                let content_clone = content.clone();
-                return Token::new(TokenType::Word(content), content_clone, start_line, start_column);
+                return Token::new(TokenType::Word(content), content, start_line, start_column);
             }
         }
         

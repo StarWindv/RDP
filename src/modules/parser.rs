@@ -237,73 +237,18 @@ impl<'a> Parser<'a> {
                         self.advance();
                     }
                 }
-                TokenType::Dollar => {
-                    // Variable expansion: $VAR or ${VAR}
-                    let mut var_name = String::new();
-                    let dollar_token = token.clone();
-                    command_tokens.push(dollar_token);
+                TokenType::Question => {
+                    // $? special variable
+                    let question_token = token.clone();
+                    command_tokens.push(question_token);
                     self.advance();
                     
-                    // Check for ${VAR} syntax
-                    if self.check_token_type(&TokenType::LeftBrace) {
-                        let lbrace_token = self.current_token.clone().unwrap();
-                        command_tokens.push(lbrace_token);
-                        self.advance();
-                        
-                        // Read variable name until }
-                        while let Some(token) = &self.current_token {
-                            if token.token_type == TokenType::RightBrace {
-                                let rbrace_token = token.clone();
-                                command_tokens.push(rbrace_token);
-                                self.advance();
-                                break;
-                            } else if let TokenType::Word(part) = &token.token_type {
-                                var_name.push_str(part);
-                                command_tokens.push(token.clone());
-                                self.advance();
-                            } else {
-                                break;
-                            }
-                        }
-                        
-                        // Create expanded argument
-                        let expanded = format!("${{{}}}", var_name);
-                        if name.is_none() {
-                            name = Some(expanded);
-                        } else {
-                            args.push(expanded);
-                        }
+                    // Create expanded argument
+                    let expanded = "$?".to_string();
+                    if name.is_none() {
+                        name = Some(expanded);
                     } else {
-                        // $VAR syntax
-                        if let Some(next_token) = &self.current_token {
-                            if let TokenType::Word(word) = &next_token.token_type {
-                                var_name = word.clone();
-                                command_tokens.push(next_token.clone());
-                                self.advance();
-                                
-                                // Create expanded argument
-                                let expanded = format!("${}", var_name);
-                                if name.is_none() {
-                                    name = Some(expanded);
-                                } else {
-                                    args.push(expanded);
-                                }
-                            } else {
-                                // Just $, treat as literal
-                                if name.is_none() {
-                                    name = Some("$".to_string());
-                                } else {
-                                    args.push("$".to_string());
-                                }
-                            }
-                        } else {
-                            // Just $ at end
-                            if name.is_none() {
-                                name = Some("$".to_string());
-                            } else {
-                                args.push("$".to_string());
-                            }
-                        }
+                        args.push(expanded);
                     }
                 }
                 _ => {

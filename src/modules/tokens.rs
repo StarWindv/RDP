@@ -82,59 +82,9 @@ pub enum TokenType {
     Backtick,              // `
     
     // ============================================
-    // Pattern Matching Operators
+    // Pattern Matching (for case statements)
     // ============================================
-    Star,                    // *
-    Question,                // ?
-    LeftBracket,            // [
-    RightBracket,           // ]
-    Exclamation,            // ! (pattern matching, not reserved word)
-    At,                     // @
-    Plus,                   // +
-    
-    // ============================================
-    // Arithmetic Operators (for arithmetic expansion)
-    // ============================================
-    ArithmeticPlus,          // + (arithmetic)
-    ArithmeticMinus,         // - (arithmetic)
-    ArithmeticStar,          // * (arithmetic)
-    ArithmeticSlash,         // / (arithmetic)
-    ArithmeticPercent,       // % (arithmetic)
-    ArithmeticEq,            // == (arithmetic equality)
-    ArithmeticNe,            // != (arithmetic inequality)
-    ArithmeticLt,            // < (arithmetic less than)
-    ArithmeticGt,            // > (arithmetic greater than)
-    ArithmeticLe,            // <= (arithmetic less than or equal)
-    ArithmeticGe,            // >= (arithmetic greater than or equal)
-    ArithmeticAnd,           // & (arithmetic bitwise AND)
-    ArithmeticOr,            // | (arithmetic bitwise OR)
-    ArithmeticXor,           // ^ (arithmetic bitwise XOR)
-    ArithmeticNot,           // ~ (arithmetic bitwise NOT)
-    ArithmeticLShift,        // << (arithmetic left shift)
-    ArithmeticRShift,        // >> (arithmetic right shift)
-    ArithmeticLogicalAnd,    // && (arithmetic logical AND)
-    ArithmeticLogicalOr,     // || (arithmetic logical OR)
-    ArithmeticLogicalNot,    // ! (arithmetic logical NOT)
-    ArithmeticQuestion,      // ? (arithmetic conditional)
-    ArithmeticColon,         // : (arithmetic conditional)
-    ArithmeticAssign,        // = (arithmetic assignment)
-    ArithmeticPlusAssign,    // +=
-    ArithmeticMinusAssign,   // -=
-    ArithmeticStarAssign,    // *=
-    ArithmeticSlashAssign,   // /=
-    ArithmeticPercentAssign, // %=
-    ArithmeticAndAssign,     // &=
-    ArithmeticOrAssign,      // |=
-    ArithmeticXorAssign,     // ^=
-    ArithmeticLShiftAssign,  // <<=
-    ArithmeticRShiftAssign,  // >>=
-    ArithmeticComma,         // , (arithmetic comma)
-    
-    // ============================================
-    // Arithmetic Expansion
-    // ============================================
-    DollarDLeftParen,       // $((
-    DRightParen,            // )) (arithmetic expansion close)
+    Pattern(String),       // Pattern in case statement
     
     // ============================================
     // Here-document delimiters
@@ -241,16 +191,7 @@ impl Token {
     }
     
     pub fn is_pattern(&self) -> bool {
-        match self.token_type {
-            TokenType::Star |
-            TokenType::Question |
-            TokenType::LeftBracket |
-            TokenType::RightBracket |
-            TokenType::Exclamation |
-            TokenType::At |
-            TokenType::Plus => true,
-            _ => false,
-        }
+        matches!(self.token_type, TokenType::Pattern(_))
     }
     
     pub fn is_dollar_expansion(&self) -> bool {
@@ -325,53 +266,10 @@ impl fmt::Display for TokenType {
             TokenType::DollarLeftParen => write!(f, "$("),
             TokenType::DollarLeftBrace => write!(f, "${{"),
             TokenType::Backtick => write!(f, "`"),
-            TokenType::Exclamation => write!(f, "!"),
-            TokenType::At => write!(f, "@"),
-            TokenType::Plus => write!(f, "+"),
-            TokenType::Star => write!(f, "*"),
-            TokenType::Question => write!(f, "?"),
-            TokenType::LeftBracket => write!(f, "["),
-            TokenType::RightBracket => write!(f, "]"),
-            TokenType::DollarDLeftParen => write!(f, "$(("),
-            TokenType::DRightParen => write!(f, "))"),
+            TokenType::Pattern(s) => write!(f, "Pattern({})", s),
             TokenType::HereDocDelimiter(s) => write!(f, "HereDocDelimiter({})", s),
             TokenType::Eof => write!(f, "EOF"),
             TokenType::Error(msg) => write!(f, "Error({})", msg),
-            // Arithmetic operators
-            TokenType::ArithmeticPlus => write!(f, "+"),
-            TokenType::ArithmeticMinus => write!(f, "-"),
-            TokenType::ArithmeticStar => write!(f, "*"),
-            TokenType::ArithmeticSlash => write!(f, "/"),
-            TokenType::ArithmeticPercent => write!(f, "%"),
-            TokenType::ArithmeticEq => write!(f, "=="),
-            TokenType::ArithmeticNe => write!(f, "!="),
-            TokenType::ArithmeticLt => write!(f, "<"),
-            TokenType::ArithmeticGt => write!(f, ">"),
-            TokenType::ArithmeticLe => write!(f, "<="),
-            TokenType::ArithmeticGe => write!(f, ">="),
-            TokenType::ArithmeticAnd => write!(f, "&"),
-            TokenType::ArithmeticOr => write!(f, "|"),
-            TokenType::ArithmeticXor => write!(f, "^"),
-            TokenType::ArithmeticNot => write!(f, "~"),
-            TokenType::ArithmeticLShift => write!(f, "<<"),
-            TokenType::ArithmeticRShift => write!(f, ">>"),
-            TokenType::ArithmeticLogicalAnd => write!(f, "&&"),
-            TokenType::ArithmeticLogicalOr => write!(f, "||"),
-            TokenType::ArithmeticLogicalNot => write!(f, "!"),
-            TokenType::ArithmeticQuestion => write!(f, "?"),
-            TokenType::ArithmeticColon => write!(f, ":"),
-            TokenType::ArithmeticAssign => write!(f, "="),
-            TokenType::ArithmeticPlusAssign => write!(f, "+="),
-            TokenType::ArithmeticMinusAssign => write!(f, "-="),
-            TokenType::ArithmeticStarAssign => write!(f, "*="),
-            TokenType::ArithmeticSlashAssign => write!(f, "/="),
-            TokenType::ArithmeticPercentAssign => write!(f, "%="),
-            TokenType::ArithmeticAndAssign => write!(f, "&="),
-            TokenType::ArithmeticOrAssign => write!(f, "|="),
-            TokenType::ArithmeticXorAssign => write!(f, "^="),
-            TokenType::ArithmeticLShiftAssign => write!(f, "<<="),
-            TokenType::ArithmeticRShiftAssign => write!(f, ">>="),
-            TokenType::ArithmeticComma => write!(f, ","),
         }
     }
 }

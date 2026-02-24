@@ -222,6 +222,10 @@ impl SsaExecutor {
                     .collect();
                 
                 let status = self.builtins.execute(name, &arg_strings, &mut self.env);
+                
+                // Update exit status in environment
+                self.env.exit_status = status;
+                
                 let value = ExecValue::ExitStatus(status);
                 self.set_value(*result, value.clone());
                 value
@@ -243,6 +247,9 @@ impl SsaExecutor {
                 } else {
                     self.execute_external_command(&cmd_str, &arg_strings)
                 };
+                
+                // Update exit status in environment
+                self.env.exit_status = status;
                 
                 let value = ExecValue::ExitStatus(status);
                 self.set_value(*result, value.clone());

@@ -68,17 +68,38 @@ impl ShellEnv {
                         }
                         
                         println!("DEBUG EXPAND: found ${{{}}}", var_name);
-                        if let Some(value) = self.get_var(&var_name) {
-                            println!("DEBUG EXPAND: value = '{}'", value);
-                            result.push_str(value);
-                        } else {
-                            println!("DEBUG EXPAND: variable not found");
+                        
+                        // Check for special variables
+                        match var_name.as_str() {
+                            "?" => {
+                                println!("DEBUG EXPAND: special variable $?, value = {}", self.exit_status);
+                                result.push_str(&self.exit_status.to_string());
+                            }
+                            "$" => {
+                                // Process ID
+                                let pid = std::process::id();
+                                println!("DEBUG EXPAND: special variable $$, value = {}", pid);
+                                result.push_str(&pid.to_string());
+                            }
+                            "0" => {
+                                // Shell name
+                                println!("DEBUG EXPAND: special variable $0, value = rs-dash-pro");
+                                result.push_str("rs-dash-pro");
+                            }
+                            _ => {
+                                if let Some(value) = self.get_var(&var_name) {
+                                    println!("DEBUG EXPAND: value = '{}'", value);
+                                    result.push_str(value);
+                                } else {
+                                    println!("DEBUG EXPAND: variable not found");
+                                }
+                            }
                         }
-                    } else if next.is_ascii_alphanumeric() || next == '_' {
-                        // $var syntax
+                    } else if next.is_ascii_alphanumeric() || next == '_' || next == '?' || next == '$' || next == '0' {
+                        // $var syntax or special variables
                         let mut var_name = String::new();
                         while let Some(&c) = chars.peek() {
-                            if c.is_ascii_alphanumeric() || c == '_' {
+                            if c.is_ascii_alphanumeric() || c == '_' || c == '?' || c == '$' || c == '0' {
                                 var_name.push(c);
                                 chars.next();
                             } else {
@@ -87,11 +108,32 @@ impl ShellEnv {
                         }
                         
                         println!("DEBUG EXPAND: found ${}", var_name);
-                        if let Some(value) = self.get_var(&var_name) {
-                            println!("DEBUG EXPAND: value = '{}'", value);
-                            result.push_str(value);
-                        } else {
-                            println!("DEBUG EXPAND: variable not found");
+                        
+                        // Check for special variables
+                        match var_name.as_str() {
+                            "?" => {
+                                println!("DEBUG EXPAND: special variable $?, value = {}", self.exit_status);
+                                result.push_str(&self.exit_status.to_string());
+                            }
+                            "$" => {
+                                // Process ID
+                                let pid = std::process::id();
+                                println!("DEBUG EXPAND: special variable $$, value = {}", pid);
+                                result.push_str(&pid.to_string());
+                            }
+                            "0" => {
+                                // Shell name
+                                println!("DEBUG EXPAND: special variable $0, value = rs-dash-pro");
+                                result.push_str("rs-dash-pro");
+                            }
+                            _ => {
+                                if let Some(value) = self.get_var(&var_name) {
+                                    println!("DEBUG EXPAND: value = '{}'", value);
+                                    result.push_str(value);
+                                } else {
+                                    println!("DEBUG EXPAND: variable not found");
+                                }
+                            }
                         }
                     } else {
                         // Just a literal $
