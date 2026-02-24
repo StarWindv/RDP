@@ -5,10 +5,20 @@ use std::env as std_env;
 use std::io::{self, Write};
 use std::process;
 
-use rs_dash_pro::enhanced_lexer::EnhancedLexer;
-use rs_dash_pro::parser::Parser;
-use rs_dash_pro::ssa_ir_generator::SsaIrGenerator;
-use rs_dash_pro::ssa_executor::SsaExecutor;
+mod tokens;
+mod enhanced_lexer;
+mod ast;
+mod parser;
+mod ssa_ir;
+mod ssa_ir_generator;
+mod ssa_executor;
+mod builtins;
+mod env;
+
+use enhanced_lexer::EnhancedLexer;
+use parser::Parser;
+use ssa_ir_generator::SsaIrGenerator;
+use ssa_executor::SsaExecutor;
 
 /// Main function
 fn main() {

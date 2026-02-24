@@ -153,7 +153,7 @@ impl SsaExecutor {
         self.program_counter = 0;
         
         for instr in &block.instructions {
-            let result = self.execute_instruction(instr, func);
+            let _result = self.execute_instruction(instr, func);
             
             // Check for control flow instructions
             match instr {
