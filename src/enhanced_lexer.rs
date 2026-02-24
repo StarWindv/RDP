@@ -237,10 +237,19 @@ impl<'a> EnhancedLexer<'a> {
                 // Words and names
                 // ============================================
                 _ => {
-                    if c.is_alphabetic() || c == '_' {
-                        // Could be a reserved word, variable name, or regular word
-                        let word = self.read_word();
-                        
+                    // Check if it's a digit (number)
+                    if c.is_digit(10) {
+                        let number_str = self.read_number();
+                        if let Ok(num) = number_str.parse::<i32>() {
+                            return Token::new(TokenType::Number(num), number_str, start_line, start_column);
+                        } else {
+                            return Token::new(TokenType::Error(format!("Invalid number: {}", number_str)), number_str, start_line, start_column);
+                        }
+                    }
+                    
+                    // Read a word (any non-special, non-whitespace characters)
+                    let word = self.read_word();
+                    if !word.is_empty() {
                         // Check if it's a reserved word
                         if is_reserved_word(&word) {
                             if let Some(token_type) = reserved_word_token_type(&word) {
@@ -262,20 +271,12 @@ impl<'a> EnhancedLexer<'a> {
                         }
                         
                         // Regular word
-                        Token::new(TokenType::Word(word.clone()), word, start_line, start_column)
-                    } else if c.is_digit(10) {
-                        // Number
-                        let number_str = self.read_number();
-                        if let Ok(num) = number_str.parse::<i32>() {
-                            Token::new(TokenType::Number(num), number_str, start_line, start_column)
-                        } else {
-                            Token::new(TokenType::Error(format!("Invalid number: {}", number_str)), number_str, start_line, start_column)
-                        }
-                    } else {
-                        // Unknown character, consume it
-                        self.consume_char();
-                        Token::new(TokenType::Error(format!("Unexpected character: {}", c)), c.to_string(), start_line, start_column)
+                        return Token::new(TokenType::Word(word.clone()), word, start_line, start_column);
                     }
+                    
+                    // Unknown character, consume it
+                    self.consume_char();
+                    Token::new(TokenType::Error(format!("Unexpected character: {}", c)), c.to_string(), start_line, start_column)
                 }
             }
         } else {
@@ -284,17 +285,16 @@ impl<'a> EnhancedLexer<'a> {
         }
     }
     
-    /// Read a word (alphanumeric and underscores)
+    /// Read a word (any non-special characters)
     fn read_word(&mut self) -> String {
         let mut word = String::new();
         
         while let Some(&c) = self.chars.peek() {
-            if c.is_alphanumeric() || c == '_' {
-                word.push(c);
-                self.consume_char();
-            } else {
+            if self.is_special_character(c) || c.is_whitespace() {
                 break;
             }
+            word.push(c);
+            self.consume_char();
         }
         
         word
