@@ -262,6 +262,7 @@ impl Builtins {
     
     /// export - set export attribute for variables
     fn export(&self, args: &[String], env: &mut ShellEnv) -> i32 {
+        println!("DEBUG BUILTIN export: args = {:?}", args);
         if args.is_empty() {
             // Print all exported variables
             for (key, value) in &env.vars {
@@ -271,16 +272,19 @@ impl Builtins {
         }
         
         for arg in args {
+            println!("DEBUG BUILTIN export: processing arg = {}", arg);
             if arg.contains('=') {
                 // VAR=value format
                 let parts: Vec<&str> = arg.splitn(2, '=').collect();
                 let var = parts[0];
                 let val = if parts.len() > 1 { parts[1] } else { "" };
+                println!("DEBUG BUILTIN export: setting var {} = {}", var, val);
                 env.set_var(var.to_string(), val.to_string());
                 // Mark as exported (in real shell, we'd track this separately)
                 env.set_var(format!("__exported_{}", var), "1".to_string());
             } else {
                 // Just variable name, mark as exported
+                println!("DEBUG BUILTIN export: marking {} as exported", arg);
                 env.set_var(format!("__exported_{}", arg), "1".to_string());
             }
         }
