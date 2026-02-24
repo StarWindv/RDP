@@ -208,21 +208,6 @@ impl<'a> Parser<'a> {
         let mut args = Vec::new();
         let mut command_tokens = Vec::new();
         
-        // Parse variable assignments
-        while let Some(token) = &self.current_token {
-            if let TokenType::AssignmentWord(value) = &token.token_type {
-                assignments.push(AstNode::Assignment {
-                    name: value.split('=').next().unwrap().to_string(),
-                    value: value.splitn(2, '=').nth(1).unwrap_or("").to_string(),
-                    token: token.clone(),
-                });
-                command_tokens.push(token.clone());
-                self.advance();
-            } else {
-                break;
-            }
-        }
-        
         // Parse command name and arguments
         while let Some(token) = &self.current_token {
             match &token.token_type {
@@ -234,6 +219,23 @@ impl<'a> Parser<'a> {
                     }
                     command_tokens.push(token.clone());
                     self.advance();
+                }
+                TokenType::AssignmentWord(value) => {
+                    if name.is_none() {
+                        // This is a variable assignment before command name
+                        assignments.push(AstNode::Assignment {
+                            name: value.split('=').next().unwrap().to_string(),
+                            value: value.splitn(2, '=').nth(1).unwrap_or("").to_string(),
+                            token: token.clone(),
+                        });
+                        command_tokens.push(token.clone());
+                        self.advance();
+                    } else {
+                        // This is an argument (e.g., export VAR=value)
+                        args.push(value.clone());
+                        command_tokens.push(token.clone());
+                        self.advance();
+                    }
                 }
                 TokenType::Star |
                 TokenType::Question |
