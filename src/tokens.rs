@@ -82,9 +82,32 @@ pub enum TokenType {
     Backtick,              // `
     
     // ============================================
-    // Pattern Matching (for case statements)
+    // Pattern Matching Operators
     // ============================================
-    Pattern(String),       // Pattern in case statement
+    Star,                    // *
+    Question,                // ?
+    LeftBracket,            // [
+    RightBracket,           // ]
+    Exclamation,            // ! (pattern matching, not reserved word)
+    
+    // ============================================
+    // Arithmetic Expansion
+    // ============================================
+    DollarDLeftParen,       // $((
+    DRightParen,            // )) (arithmetic expansion close)
+    
+    // ============================================
+    // Process Substitution (bash extension, but common)
+    // ============================================
+    LessLeftParen,          // <(
+    GreatLeftParen,         // >(
+    // RightParen is already defined above
+    
+    // ============================================
+    // Extended Globbing (bash extension)
+    // ============================================
+    At,                     // @
+    Plus,                   // +
     
     // ============================================
     // Here-document delimiters
@@ -191,7 +214,16 @@ impl Token {
     }
     
     pub fn is_pattern(&self) -> bool {
-        matches!(self.token_type, TokenType::Pattern(_))
+        match self.token_type {
+            TokenType::Star |
+            TokenType::Question |
+            TokenType::LeftBracket |
+            TokenType::RightBracket |
+            TokenType::Exclamation |
+            TokenType::At |
+            TokenType::Plus => true,
+            _ => false,
+        }
     }
     
     pub fn is_dollar_expansion(&self) -> bool {
@@ -266,7 +298,17 @@ impl fmt::Display for TokenType {
             TokenType::DollarLeftParen => write!(f, "$("),
             TokenType::DollarLeftBrace => write!(f, "${{"),
             TokenType::Backtick => write!(f, "`"),
-            TokenType::Pattern(s) => write!(f, "Pattern({})", s),
+            TokenType::Exclamation => write!(f, "!"),
+            TokenType::At => write!(f, "@"),
+            TokenType::Plus => write!(f, "+"),
+            TokenType::Star => write!(f, "*"),
+            TokenType::Question => write!(f, "?"),
+            TokenType::LeftBracket => write!(f, "["),
+            TokenType::RightBracket => write!(f, "]"),
+            TokenType::DollarDLeftParen => write!(f, "$(("),
+            TokenType::DRightParen => write!(f, "))"),
+            TokenType::LessLeftParen => write!(f, "<("),
+            TokenType::GreatLeftParen => write!(f, ">("),
             TokenType::HereDocDelimiter(s) => write!(f, "HereDocDelimiter({})", s),
             TokenType::Eof => write!(f, "EOF"),
             TokenType::Error(msg) => write!(f, "Error({})", msg),

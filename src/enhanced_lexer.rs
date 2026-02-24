@@ -108,17 +108,25 @@ impl<'a> EnhancedLexer<'a> {
                 // ============================================
                 '<' => {
                     self.consume_char();
-                    // Check for <<, <<-, <&, <>
+                    // Check for <<, <<-, <&, <>, <( (process substitution)
                     if self.match_char('<') {
                         // Check for <<-
                         let strip_tabs = self.match_char('-');
+                        if strip_tabs {
+                            // The delimiter will be read after the command
+                            self.pending_here_doc = Some((self.read_here_doc_delimiter(), true));
+                            return Token::new(TokenType::DLessDash, "<<-".to_string(), start_line, start_column);
+                        } else if let Some(&next) = self.chars.peek() {
+                            if next == '(' {
+                                // Process substitution: <(
+                                self.consume_char();
+                                return Token::new(TokenType::LessLeftParen, "<(".to_string(), start_line, start_column);
+                            }
+                        }
+                        // Regular here-document
                         // The delimiter will be read after the command
-                        self.pending_here_doc = Some((self.read_here_doc_delimiter(), strip_tabs));
-                        return if strip_tabs {
-                            Token::new(TokenType::DLessDash, "<<-".to_string(), start_line, start_column)
-                        } else {
-                            Token::new(TokenType::DLess, "<<".to_string(), start_line, start_column)
-                        };
+                        self.pending_here_doc = Some((self.read_here_doc_delimiter(), false));
+                        return Token::new(TokenType::DLess, "<<".to_string(), start_line, start_column);
                     } else if self.match_char('&') {
                         return Token::new(TokenType::LessAnd, "<&".to_string(), start_line, start_column);
                     } else if self.match_char('>') {
@@ -129,25 +137,39 @@ impl<'a> EnhancedLexer<'a> {
                 
                 '>' => {
                     self.consume_char();
-                    // Check for >>, >&
+                    // Check for >>, >&, >( (process substitution)
                     if self.match_char('>') {
                         return Token::new(TokenType::DGreat, ">>".to_string(), start_line, start_column);
                     } else if self.match_char('&') {
                         return Token::new(TokenType::GreatAnd, ">&".to_string(), start_line, start_column);
+                    } else if let Some(&next) = self.chars.peek() {
+                        if next == '(' {
+                            // Process substitution: >(
+                            self.consume_char();
+                            return Token::new(TokenType::GreatLeftParen, ">(".to_string(), start_line, start_column);
+                        }
                     }
                     Token::new(TokenType::Great, ">".to_string(), start_line, start_column)
                 }
                 
                 // ============================================
-                // Bang operator (history expansion)
+                // Bang operator (history expansion) and pattern matching
                 // ============================================
                 '!' => {
                     self.consume_char();
-                    // Check if it's a reserved word or history expansion
+                    // Check if it's a reserved word or pattern matching
                     if self.is_next_char_word_boundary() {
                         // It's the reserved word "!"
                         return Token::new(TokenType::Bang, "!".to_string(), start_line, start_column);
                     } else {
+                        // Pattern matching or history expansion
+                        // Check for !( pattern (extended globbing)
+                        if let Some(&next) = self.chars.peek() {
+                            if next == '(' {
+                                self.consume_char();
+                                return Token::new(TokenType::Exclamation, "!(".to_string(), start_line, start_column);
+                            }
+                        }
                         // History expansion, read as word
                         let mut word = String::from("!");
                         while let Some(&c) = self.chars.peek() {
@@ -185,6 +207,34 @@ impl<'a> EnhancedLexer<'a> {
                 }
                 
                 // ============================================
+                // Pattern matching operators
+                // ============================================
+                '*' => {
+                    self.consume_char();
+                    Token::new(TokenType::Star, "*".to_string(), start_line, start_column)
+                }
+                
+                '?' => {
+                    self.consume_char();
+                    Token::new(TokenType::Question, "?".to_string(), start_line, start_column)
+                }
+                
+                '[' => {
+                    self.consume_char();
+                    Token::new(TokenType::LeftBracket, "[".to_string(), start_line, start_column)
+                }
+                
+                ']' => {
+                    self.consume_char();
+                    Token::new(TokenType::RightBracket, "]".to_string(), start_line, start_column)
+                }
+                
+                '@' => {
+                    self.consume_char();
+                    Token::new(TokenType::At, "@".to_string(), start_line, start_column)
+                }
+                
+                // ============================================
                 // Parameter expansion and command substitution
                 // ============================================
                 '$' => {
@@ -195,7 +245,7 @@ impl<'a> EnhancedLexer<'a> {
                             self.consume_char();
                             // Check for $(( (arithmetic expansion)
                             if self.match_char('(') {
-                                return Token::new(TokenType::Word("$((".to_string()), "$((".to_string(), start_line, start_column);
+                                return Token::new(TokenType::DollarDLeftParen, "$((".to_string(), start_line, start_column);
                             }
                             return Token::new(TokenType::DollarLeftParen, "$(".to_string(), start_line, start_column);
                         } else if next == '{' {
@@ -610,7 +660,8 @@ impl<'a> EnhancedLexer<'a> {
     fn is_special_character(&self, c: char) -> bool {
         match c {
             ';' | '&' | '|' | '<' | '>' | '(' | ')' | '{' | '}' | 
-            '`' | '$' | '\'' | '"' | '#' | '\n' | '=' => true,
+            '`' | '$' | '\'' | '"' | '#' | '\n' | '=' |
+            '*' | '?' | '[' | ']' | '!' | '@' | '+' => true,
             _ => false,
         }
     }
