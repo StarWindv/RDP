@@ -160,7 +160,7 @@ impl Builtins {
     // ============================================
     
     /// . (dot) - source a file
-    fn dot(&self, args: &[String], _env: &mut ShellEnv) -> i32 {
+    fn dot(&self, args: &[String], env: &mut ShellEnv) -> i32 {
         if args.is_empty() {
             eprintln!(".: filename argument required");
             return 1;
@@ -169,11 +169,40 @@ impl Builtins {
         let filename = &args[0];
         match fs::read_to_string(filename) {
             Ok(content) => {
-                // For now, just print the content
-                // TODO: Actually execute the commands from the file
-                println!("Sourcing file: {}", filename);
-                println!("Content:\n{}", content);
-                0
+                println!("DEBUG: Sourcing file: {}", filename);
+                
+                // Split content into lines and execute each line
+                let mut last_status = 0;
+                for line in content.lines() {
+                    let line = line.trim();
+                    if line.is_empty() || line.starts_with('#') {
+                        continue;
+                    }
+                    
+                    println!("DEBUG: Executing sourced line: {}", line);
+                    
+                    // TODO: Actually parse and execute the command
+                    // For now, just check if it's an export command
+                    if line.starts_with("export ") {
+                        let export_line = &line[7..]; // Remove "export "
+                        let parts: Vec<&str> = export_line.splitn(2, '=').collect();
+                        if parts.len() == 2 {
+                            let var_name = parts[0].trim();
+                            let var_value = parts[1].trim().trim_matches('"');
+                            println!("DEBUG: Setting variable {} = {}", var_name, var_value);
+                            env.set_var(var_name.to_string(), var_value.to_string());
+                            // Mark as exported
+                            env.set_var(format!("__exported_{}", var_name), "1".to_string());
+                        }
+                    } else if line.starts_with("echo ") {
+                        let echo_line = &line[5..]; // Remove "echo "
+                        // Expand variables in the echo line
+                        let expanded = env.expand_variables(echo_line.trim_matches('"'));
+                        println!("{}", expanded);
+                    }
+                }
+                
+                last_status
             }
             Err(e) => {
                 eprintln!(".: {}: {}", filename, e);
