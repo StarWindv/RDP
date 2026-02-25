@@ -28,6 +28,7 @@ pub enum ValueType {
     FileDescriptor,
     ProcessId,
     ExitStatus,
+    Array,
     Void,
 }
 
@@ -40,6 +41,7 @@ impl fmt::Display for ValueType {
             ValueType::FileDescriptor => write!(f, "fd"),
             ValueType::ProcessId => write!(f, "pid"),
             ValueType::ExitStatus => write!(f, "status"),
+            ValueType::Array => write!(f, "array"),
             ValueType::Void => write!(f, "void"),
         }
     }
@@ -88,63 +90,118 @@ impl fmt::Display for Value {
 /// SSA instruction
 #[derive(Debug, Clone)]
 pub enum Instruction {
+    // ============================================
     // Control flow
+    // ============================================
     Jump(BasicBlockId),
     Branch(ValueId, BasicBlockId, BasicBlockId), // cond, true_block, false_block
     Return(ValueId),
+    Break(Option<i32>),    // break [n]
+    Continue(Option<i32>), // continue [n]
     
-    // Variable operations
+    // ============================================
+    // Variable and environment operations
+    // ============================================
     AllocVar(String, ValueId), // name, result
     Store(ValueId, ValueId),   // var, value
     Load(ValueId, ValueId),    // var, result
+    ExportVar(ValueId),        // export variable
+    UnsetVar(ValueId),         // unset variable
+    ReadonlyVar(ValueId),      // readonly variable
     
+    // ============================================
     // Command execution
+    // ============================================
     CallBuiltin(String, Vec<ValueId>, ValueId), // name, args, result(status)
     CallExternal(String, Vec<ValueId>, ValueId), // cmd, args, result(status)
+    CallFunction(String, Vec<ValueId>, ValueId), // function call
     
-    // Process operations
+    // ============================================
+    // Process and job control
+    // ============================================
     Fork(ValueId), // result(pid)
     Exec(ValueId, String, Vec<ValueId>), // pid, cmd, args
     Wait(ValueId, ValueId), // pid, result(status)
     Exit(ValueId), // status
+    Kill(ValueId, i32), // pid, signal
+    Trap(ValueId, BasicBlockId), // signal, handler_block
     
-    // Pipeline operations
+    // ============================================
+    // Pipeline and redirection operations
+    // ============================================
     CreatePipe(ValueId, ValueId), // result(read_fd), result(write_fd)
     DupFd(ValueId, i32, ValueId), // old_fd, new_fd, result
     CloseFd(ValueId),
     Redirect(ValueId, String, RedirectMode), // fd, target, mode
+    HereDoc(String, ValueId), // content, result(fd)
     
-    // String operations
+    // ============================================
+    // String and pattern matching operations
+    // ============================================
     Concat(ValueId, ValueId, ValueId), // str1, str2, result
     Substr(ValueId, ValueId, ValueId, ValueId), // str, start, len, result
     Length(ValueId, ValueId), // str, result
+    PatternMatch(ValueId, String, ValueId), // str, pattern, result(bool)
+    GlobExpand(ValueId, ValueId), // pattern, result(list)
     
+    // ============================================
     // Arithmetic operations
+    // ============================================
     Add(ValueId, ValueId, ValueId), // a, b, result
     Sub(ValueId, ValueId, ValueId),
     Mul(ValueId, ValueId, ValueId),
     Div(ValueId, ValueId, ValueId),
     Mod(ValueId, ValueId, ValueId),
+    Neg(ValueId, ValueId), // a, result
+    BitAnd(ValueId, ValueId, ValueId),
+    BitOr(ValueId, ValueId, ValueId),
+    BitXor(ValueId, ValueId, ValueId),
+    BitNot(ValueId, ValueId),
+    ShiftLeft(ValueId, ValueId, ValueId),
+    ShiftRight(ValueId, ValueId, ValueId),
     
-    // Logical operations
+    // ============================================
+    // Logical and comparison operations
+    // ============================================
     And(ValueId, ValueId, ValueId), // a, b, result
     Or(ValueId, ValueId, ValueId),
     Not(ValueId, ValueId), // a, result
-    
-    // Comparison operations
     Cmp(ValueId, ValueId, CmpOp, ValueId), // a, b, op, result
     
-    // Constants
+    // ============================================
+    // Array and list operations
+    // ============================================
+    CreateArray(ValueId), // result(array)
+    ArraySet(ValueId, ValueId, ValueId), // array, index, value
+    ArrayGet(ValueId, ValueId, ValueId), // array, index, result
+    ArrayLength(ValueId, ValueId), // array, result
+    ArrayKeys(ValueId, ValueId), // array, result(list)
+    
+    // ============================================
+    // Command substitution and parameter expansion
+    // ============================================
+    CommandSub(ValueId, ValueId), // command_result, result(string)
+    ParamExpand(ValueId, ParamExpandOp, ValueId), // parameter, operation, result
+    
+    // ============================================
+    // Constants and literals
+    // ============================================
     ConstString(String, ValueId), // value, result
     ConstInt(i32, ValueId),       // value, result
     ConstBool(bool, ValueId),     // value, result
+    ConstArray(Vec<String>, ValueId), // values, result(array)
     
-    // Phi function (for SSA)
+    // ============================================
+    // SSA-specific operations
+    // ============================================
     Phi(Vec<(BasicBlockId, ValueId)>, ValueId), // incoming values, result
     
-    // Special
+    // ============================================
+    // Special operations
+    // ============================================
     Nop,
     Error(String, Token),
+    DebugPrint(ValueId), // value to print for debugging
 }
 
 /// Redirection modes
@@ -171,6 +228,43 @@ pub enum CmpOp {
     Ge,  // >=
 }
 
+/// Parameter expansion operations
+#[derive(Debug, Clone)]
+pub enum ParamExpandOp {
+    // ${parameter}
+    Simple,
+    // ${parameter:-word} - Use default value
+    UseDefault(String),
+    // ${parameter:=word} - Assign default value
+    AssignDefault(String),
+    // ${parameter:?word} - Error if null or unset
+    ErrorIfNull(String),
+    // ${parameter:+word} - Use alternate value
+    UseAlternate(String),
+    // ${#parameter} - String length
+    Length,
+    // ${parameter%word} - Remove smallest suffix pattern
+    RemoveSuffix(String),
+    // ${parameter%%word} - Remove largest suffix pattern
+    RemoveLargestSuffix(String),
+    // ${parameter#word} - Remove smallest prefix pattern
+    RemovePrefix(String),
+    // ${parameter##word} - Remove largest prefix pattern
+    RemoveLargestPrefix(String),
+    // ${parameter:offset} - Substring from offset
+    Substring(i32),
+    // ${parameter:offset:length} - Substring with length
+    SubstringWithLength(i32, i32),
+    // ${parameter/pattern/string} - Replace first match
+    ReplaceFirst(String, String),
+    // ${parameter//pattern/string} - Replace all matches
+    ReplaceAll(String, String),
+    // ${parameter/#pattern/string} - Replace prefix match
+    ReplacePrefix(String, String),
+    // ${parameter/%pattern/string} - Replace suffix match
+    ReplaceSuffix(String, String),
+}
+
 impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -181,6 +275,22 @@ impl fmt::Display for Instruction {
             }
             
             Instruction::Return(status) => write!(f, "return {}", status),
+            
+            Instruction::Break(n) => {
+                if let Some(n) = n {
+                    write!(f, "break {}", n)
+                } else {
+                    write!(f, "break")
+                }
+            }
+            
+            Instruction::Continue(n) => {
+                if let Some(n) = n {
+                    write!(f, "continue {}", n)
+                } else {
+                    write!(f, "continue")
+                }
+            }
             
             Instruction::AllocVar(name, result) => {
                 write!(f, "{} = alloc_var '{}'", result, name)
@@ -194,6 +304,18 @@ impl fmt::Display for Instruction {
                 write!(f, "{} = load {}", result, var)
             }
             
+            Instruction::ExportVar(var) => {
+                write!(f, "export {}", var)
+            }
+            
+            Instruction::UnsetVar(var) => {
+                write!(f, "unset {}", var)
+            }
+            
+            Instruction::ReadonlyVar(var) => {
+                write!(f, "readonly {}", var)
+            }
+            
             Instruction::CallBuiltin(name, args, result) => {
                 write!(f, "{} = call_builtin '{}'", result, name)?;
                 for arg in args {
@@ -204,6 +326,14 @@ impl fmt::Display for Instruction {
             
             Instruction::CallExternal(cmd, args, result) => {
                 write!(f, "{} = call_external '{}'", result, cmd)?;
+                for arg in args {
+                    write!(f, " {}", arg)?;
+                }
+                Ok(())
+            }
+            
+            Instruction::CallFunction(func_name, args, result) => {
+                write!(f, "{} = call_function '{}'", result, func_name)?;
                 for arg in args {
                     write!(f, " {}", arg)?;
                 }
@@ -230,6 +360,14 @@ impl fmt::Display for Instruction {
                 write!(f, "exit {}", status)
             }
             
+            Instruction::Kill(pid, signal) => {
+                write!(f, "kill {} {}", pid, signal)
+            }
+            
+            Instruction::Trap(signal, handler) => {
+                write!(f, "trap {} .{}", signal, handler.0)
+            }
+            
             Instruction::CreatePipe(read_fd, write_fd) => {
                 write!(f, "{} {} = create_pipe", read_fd, write_fd)
             }
@@ -246,6 +384,10 @@ impl fmt::Display for Instruction {
                 write!(f, "redirect {} '{}' {:?}", fd, target, mode)
             }
             
+            Instruction::HereDoc(content, result) => {
+                write!(f, "{} = heredoc '{}'", result, content)
+            }
+            
             Instruction::Concat(str1, str2, result) => {
                 write!(f, "{} = concat {} {}", result, str1, str2)
             }
@@ -256,6 +398,14 @@ impl fmt::Display for Instruction {
             
             Instruction::Length(str, result) => {
                 write!(f, "{} = length {}", result, str)
+            }
+            
+            Instruction::PatternMatch(str, pattern, result) => {
+                write!(f, "{} = pattern_match {} '{}'", result, str, pattern)
+            }
+            
+            Instruction::GlobExpand(pattern, result) => {
+                write!(f, "{} = glob_expand {}", result, pattern)
             }
             
             Instruction::Add(a, b, result) => {
@@ -276,6 +426,34 @@ impl fmt::Display for Instruction {
             
             Instruction::Mod(a, b, result) => {
                 write!(f, "{} = mod {} {}", result, a, b)
+            }
+            
+            Instruction::Neg(a, result) => {
+                write!(f, "{} = neg {}", result, a)
+            }
+            
+            Instruction::BitAnd(a, b, result) => {
+                write!(f, "{} = bit_and {} {}", result, a, b)
+            }
+            
+            Instruction::BitOr(a, b, result) => {
+                write!(f, "{} = bit_or {} {}", result, a, b)
+            }
+            
+            Instruction::BitXor(a, b, result) => {
+                write!(f, "{} = bit_xor {} {}", result, a, b)
+            }
+            
+            Instruction::BitNot(a, result) => {
+                write!(f, "{} = bit_not {}", result, a)
+            }
+            
+            Instruction::ShiftLeft(a, b, result) => {
+                write!(f, "{} = shift_left {} {}", result, a, b)
+            }
+            
+            Instruction::ShiftRight(a, b, result) => {
+                write!(f, "{} = shift_right {} {}", result, a, b)
             }
             
             Instruction::And(a, b, result) => {
@@ -302,6 +480,52 @@ impl fmt::Display for Instruction {
                 write!(f, "{} = cmp {} {} {}", result, a, b, op_str)
             }
             
+            Instruction::CreateArray(result) => {
+                write!(f, "{} = create_array", result)
+            }
+            
+            Instruction::ArraySet(array, index, value) => {
+                write!(f, "array_set {} {} {}", array, index, value)
+            }
+            
+            Instruction::ArrayGet(array, index, result) => {
+                write!(f, "{} = array_get {} {}", result, array, index)
+            }
+            
+            Instruction::ArrayLength(array, result) => {
+                write!(f, "{} = array_length {}", result, array)
+            }
+            
+            Instruction::ArrayKeys(array, result) => {
+                write!(f, "{} = array_keys {}", result, array)
+            }
+            
+            Instruction::CommandSub(cmd_result, result) => {
+                write!(f, "{} = command_sub {}", result, cmd_result)
+            }
+            
+            Instruction::ParamExpand(param, op, result) => {
+                write!(f, "{} = param_expand {} ", result, param)?;
+                match op {
+                    ParamExpandOp::Simple => write!(f, "simple"),
+                    ParamExpandOp::UseDefault(word) => write!(f, ":-'{}'", word),
+                    ParamExpandOp::AssignDefault(word) => write!(f, ":=+'{}'", word),
+                    ParamExpandOp::ErrorIfNull(word) => write!(f, ":?'{}'", word),
+                    ParamExpandOp::UseAlternate(word) => write!(f, ":+'{}'", word),
+                    ParamExpandOp::Length => write!(f, "#"),
+                    ParamExpandOp::RemoveSuffix(word) => write!(f, "%'{}'", word),
+                    ParamExpandOp::RemoveLargestSuffix(word) => write!(f, "%%'{}'", word),
+                    ParamExpandOp::RemovePrefix(word) => write!(f, "#'{}'", word),
+                    ParamExpandOp::RemoveLargestPrefix(word) => write!(f, "##'{}'", word),
+                    ParamExpandOp::Substring(offset) => write!(f, ":{}", offset),
+                    ParamExpandOp::SubstringWithLength(offset, length) => write!(f, ":{}:{}", offset, length),
+                    ParamExpandOp::ReplaceFirst(pattern, replacement) => write!(f, "/'{}/{}'", pattern, replacement),
+                    ParamExpandOp::ReplaceAll(pattern, replacement) => write!(f, "//'{}/{}'", pattern, replacement),
+                    ParamExpandOp::ReplacePrefix(pattern, replacement) => write!(f, "/#'{}/{}'", pattern, replacement),
+                    ParamExpandOp::ReplaceSuffix(pattern, replacement) => write!(f, "/%'{}/{}'", pattern, replacement),
+                }
+            }
+            
             Instruction::ConstString(value, result) => {
                 write!(f, "{} = const_string '{}'", result, value)
             }
@@ -312,6 +536,17 @@ impl fmt::Display for Instruction {
             
             Instruction::ConstBool(value, result) => {
                 write!(f, "{} = const_bool {}", result, value)
+            }
+            
+            Instruction::ConstArray(values, result) => {
+                write!(f, "{} = const_array [", result)?;
+                for (i, val) in values.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "'{}'", val)?;
+                }
+                write!(f, "]")
             }
             
             Instruction::Phi(pairs, result) => {
@@ -326,6 +561,10 @@ impl fmt::Display for Instruction {
             
             Instruction::Error(msg, token) => {
                 write!(f, "error '{}' at {}:{}", msg, token.line, token.column)
+            }
+            
+            Instruction::DebugPrint(value) => {
+                write!(f, "debug_print {}", value)
             }
         }
     }
