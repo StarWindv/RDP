@@ -267,14 +267,59 @@ impl<'a> Parser<'a> {
                     command_tokens.push(dollar_token);
                     self.advance();
                     
-                    // Create expanded argument
-                    let expanded = "$".to_string();
-                    if name.is_none() {
-                        name = Some(expanded.clone());
-                        println!("DEBUG PARSER SIMPLE_CMD: Set command name to '{}' (from dollar)", expanded);
+                    // Check if next token is a variable name
+                    if let Some(next_token) = self.current_token.clone() {
+                        if let TokenType::Name(var_name) = &next_token.token_type {
+                            // This is $VAR syntax
+                            println!("DEBUG PARSER SIMPLE_CMD: Found variable name after $: {}", var_name);
+                            command_tokens.push(next_token.clone());
+                            self.advance();
+                            
+                            // Create expanded argument
+                            let expanded = format!("${}", var_name);
+                            if name.is_none() {
+                                name = Some(expanded.clone());
+                                println!("DEBUG PARSER SIMPLE_CMD: Set command name to '{}' (from $VAR)", expanded);
+                            } else {
+                                args.push(expanded.clone());
+                                println!("DEBUG PARSER SIMPLE_CMD: Added argument '{}' (from $VAR), args now: {:?}", expanded, args);
+                            }
+                        } else if let TokenType::Word(var_name) = &next_token.token_type {
+                            // This could be $? or other special variable
+                            println!("DEBUG PARSER SIMPLE_CMD: Found word after $: {}", var_name);
+                            command_tokens.push(next_token.clone());
+                            self.advance();
+                            
+                            // Create expanded argument
+                            let expanded = format!("${}", var_name);
+                            if name.is_none() {
+                                name = Some(expanded.clone());
+                                println!("DEBUG PARSER SIMPLE_CMD: Set command name to '{}' (from $word)", expanded);
+                            } else {
+                                args.push(expanded.clone());
+                                println!("DEBUG PARSER SIMPLE_CMD: Added argument '{}' (from $word), args now: {:?}", expanded, args);
+                            }
+                        } else {
+                            // Just a standalone $
+                            let expanded = "$".to_string();
+                            if name.is_none() {
+                                name = Some(expanded.clone());
+                                println!("DEBUG PARSER SIMPLE_CMD: Set command name to '{}' (from standalone dollar)", expanded);
+                            } else {
+                                args.push(expanded.clone());
+                                println!("DEBUG PARSER SIMPLE_CMD: Added argument '{}' (from standalone dollar), args now: {:?}", expanded, args);
+                            }
+                        }
                     } else {
-                        args.push(expanded.clone());
-                        println!("DEBUG PARSER SIMPLE_CMD: Added argument '{}' (from dollar), args now: {:?}", expanded, args);
+                        // Just a $ at end of input
+                        let expanded = "$".to_string();
+                        if name.is_none() {
+                            name = Some(expanded.clone());
+                            println!("DEBUG PARSER SIMPLE_CMD: Set command name to '{}' (from dollar at end)", expanded);
+                        } else {
+                            args.push(expanded.clone());
+                            println!("DEBUG PARSER SIMPLE_CMD: Added argument '{}' (from dollar at end), args now: {:?}", expanded, args);
+                        }
                     }
                 }
                 _ => {

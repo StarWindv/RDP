@@ -189,12 +189,18 @@ impl SsaIrGenerator {
         // Create value for command result
         let result = self.create_value(ValueType::ExitStatus);
         
-        // Convert arguments to values
+        // Convert arguments to values, expanding variables if needed
         let arg_values: Vec<ValueId> = args.iter()
             .map(|arg| {
-                let val = self.create_value(ValueType::String);
-                self.add_instruction(Instruction::ConstString(arg.clone(), val));
-                val
+                // Check if argument needs expansion
+                if self.needs_expansion(arg) {
+                    self.generate_argument_expansion(arg)
+                } else {
+                    // No expansion needed, create constant string
+                    let val = self.create_value(ValueType::String);
+                    self.add_instruction(Instruction::ConstString(arg.clone(), val));
+                    val
+                }
             })
             .collect();
         
@@ -211,6 +217,67 @@ impl SsaIrGenerator {
         ));
         
         result
+    }
+    
+    /// Check if a string needs expansion (contains $, `, etc.)
+    fn needs_expansion(&self, s: &str) -> bool {
+        // Check for variable expansion: $VAR, ${VAR}
+        if s.contains('$') {
+            return true;
+        }
+        
+        // Check for command substitution: $(command) or `command`
+        if s.contains("$(") || s.contains('`') {
+            return true;
+        }
+        
+        // Check for arithmetic expansion: $((expression))
+        if s.contains("$((") {
+            return true;
+        }
+        
+        // Check for tilde expansion: ~, ~user
+        if s.starts_with('~') {
+            return true;
+        }
+        
+        false
+    }
+    
+    /// Generate expansion for an argument string
+    fn generate_argument_expansion(&mut self, arg: &str) -> ValueId {
+        // For now, implement a simple version that handles $VAR and ${VAR}
+        // In a full implementation, we would need to parse the string and handle
+        // mixed expansions like "prefix_${VAR}_suffix"
+        
+        // Check if it's a simple variable reference
+        if arg.starts_with('$') {
+            // Remove $ prefix
+            let var_name = if arg.starts_with("${") && arg.ends_with('}') {
+                // ${VAR} syntax
+                &arg[2..arg.len()-1]
+            } else if arg.starts_with('$') {
+                // $VAR syntax
+                &arg[1..]
+            } else {
+                arg
+            };
+            
+            // Create parameter expansion instruction
+            let param_val = self.create_value(ValueType::String);
+            self.add_instruction(Instruction::ConstString(var_name.to_string(), param_val));
+            
+            let result = self.create_value(ValueType::String);
+            self.add_instruction(Instruction::ParamExpand(param_val, crate::modules::ssa_ir::ParamExpandOp::Simple, result));
+            
+            return result;
+        }
+        
+        // For now, if we can't handle the expansion, return as-is
+        // TODO: Implement full expansion logic
+        let val = self.create_value(ValueType::String);
+        self.add_instruction(Instruction::ConstString(arg.to_string(), val));
+        val
     }
     
     fn generate_assignment(&mut self, name: &str, value: &str) -> ValueId {
