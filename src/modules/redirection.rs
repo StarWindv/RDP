@@ -3,7 +3,6 @@
 
 use std::fs::{File, OpenOptions};
 use std::io;
-use std::os::fd::{AsFd, AsRawFd, FromRawFd, RawFd};
 use std::process::Stdio;
 
 use crate::modules::ast::RedirectType;
