@@ -111,7 +111,7 @@ mod tests {
     #[test]
     fn test_control_executor_creation() {
         let env = ShellEnv::new();
-        let builtins = Builtins::new(env.clone());
+        let builtins = Builtins::new();
         let executor = ControlExecutor::new(env, builtins);
         
         // Just test that it can be created

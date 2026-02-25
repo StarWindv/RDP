@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn test_process_substitution_executor_creation() {
         let env = ShellEnv::new();
-        let builtins = Builtins::new(env.clone());
+        let builtins = Builtins::new();
         let executor = ProcessSubstitutionExecutor::new(env, builtins);
         
         // Just test that it can be created
@@ -149,7 +149,7 @@ mod tests {
     #[test]
     fn test_parse_substitution() {
         let env = ShellEnv::new();
-        let builtins = Builtins::new(env.clone());
+        let builtins = Builtins::new();
         let executor = ProcessSubstitutionExecutor::new(env, builtins);
         
         // Test input substitution
@@ -175,7 +175,7 @@ mod tests {
     #[test]
     fn test_is_process_substitution() {
         let env = ShellEnv::new();
-        let builtins = Builtins::new(env.clone());
+        let builtins = Builtins::new();
         let executor = ProcessSubstitutionExecutor::new(env, builtins);
         
         assert!(executor.is_process_substitution("<(ls -l)"));
