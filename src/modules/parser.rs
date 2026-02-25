@@ -268,9 +268,21 @@ impl<'a> Parser<'a> {
             });
         }
         
+        // Check if we have a null command (just a semicolon or newline)
+        if name.is_none() && args.is_empty() && assignments.is_empty() {
+            // Check if we have a separator token
+            if let Some(token) = &self.current_token {
+                if token.token_type == TokenType::Semicolon || token.token_type == TokenType::Newline {
+                    // This is a null command, which is valid
+                    return Ok(AstNode::NullCommand);
+                }
+            }
+        }
+        
         let name = name.ok_or_else(|| ParseError {
             message: "Expected command name".to_string(),
-            token: Token::new(TokenType::Error("No command".to_string()), "".to_string(), 1, 1),
+            token: self.current_token.clone().unwrap_or_else(|| 
+                Token::new(TokenType::Error("No command".to_string()), "".to_string(), 1, 1)),
         })?;
         
         // Create simple command node
