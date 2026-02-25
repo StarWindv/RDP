@@ -1,8 +1,6 @@
 //! Process substitution for POSIX Shell
 //! Handles <(command) and >(command)
 
-use std::process::{Command, Stdio};
-use std::fs;
 
 use crate::modules::ast::AstNode;
 use crate::modules::env::ShellEnv;

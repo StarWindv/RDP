@@ -20,7 +20,7 @@ impl SubshellExecutor {
     /// Execute a subshell: ( commands )
     pub fn execute_subshell(&mut self, commands: &[AstNode]) -> Result<i32, String> {
         // Create a copy of the environment for the subshell
-        let mut subshell_env = self.env.clone();
+        let subshell_env = self.env.clone();
         
         // TODO: Execute commands in subshell environment
         // For now, just return success

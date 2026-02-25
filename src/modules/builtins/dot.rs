@@ -25,7 +25,7 @@ impl BuiltinCommand for Dot {
             Ok(content) => {
                 // TODO: Actually parse and execute the file content
                 // For now, just split into lines and handle simple cases
-                let mut last_status = 0;
+                let last_status = 0;
                 for line in content.lines() {
                     let line = line.trim();
                     if line.is_empty() || line.starts_with('#') {
