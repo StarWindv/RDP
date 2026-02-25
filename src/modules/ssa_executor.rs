@@ -227,6 +227,14 @@ impl SsaExecutor {
                 // Update exit status in environment
                 self.env.exit_status = status;
                 
+                // Check for errexit option
+                if status != 0 && crate::modules::options::errexit_enabled() {
+                    // errexit is enabled and command failed
+                    // We should exit immediately
+                    // For now, just return the error status
+                    // In a full implementation, we would need to propagate this up
+                }
+                
                 let value = ExecValue::ExitStatus(status);
                 self.set_value(*result, value.clone());
                 value
@@ -251,6 +259,14 @@ impl SsaExecutor {
                 
                 // Update exit status in environment
                 self.env.exit_status = status;
+                
+                // Check for errexit option
+                if status != 0 && crate::modules::options::errexit_enabled() {
+                    // errexit is enabled and command failed
+                    // We should exit immediately
+                    // For now, just return the error status
+                    // In a full implementation, we would need to propagate this up
+                }
                 
                 let value = ExecValue::ExitStatus(status);
                 self.set_value(*result, value.clone());
