@@ -1,6 +1,7 @@
 //! set builtin command - set shell options
 
 use crate::modules::env::ShellEnv;
+use crate::modules::options::{get_options, ShellOption};
 
 use crate::modules::builtins::registry::BuiltinCommand;
 
@@ -13,63 +14,63 @@ impl BuiltinCommand for Set {
     }
     
     fn execute(&self, args: &[String], env: &mut ShellEnv) -> i32 {
+        let mut options = get_options();
+        
         if args.is_empty() {
-            // Print all variables
+            // Print all variables and options
+            println!("Current shell options:");
+            println!("  Short options: {}", options.format_options());
+            println!();
+            
+            println!("  Long options:");
+            for opt in &[
+                ShellOption::AllExport,
+                ShellOption::IgnoreEof,
+                ShellOption::Interactive,
+                ShellOption::Monitor,
+                ShellOption::NoClobber,
+                ShellOption::NoGlob,
+                ShellOption::NoLog,
+                ShellOption::Notify,
+                ShellOption::Physical,
+                ShellOption::Posix,
+                ShellOption::Vi,
+            ] {
+                let status = if options.is_enabled(*opt) { "on" } else { "off" };
+                println!("    {:20} {} ({})", 
+                    format!("{}", opt.long_name()), 
+                    status, 
+                    opt.description());
+            }
+            println!();
+            
+            println!("Positional parameters:");
+            for (i, param) in options.get_positional_params().iter().enumerate() {
+                println!("  ${} = '{}'", i + 1, param);
+            }
+            println!();
+            
+            println!("Environment variables:");
             for (key, value) in &env.vars {
-                println!("{}='{}'", key, value);
+                println!("  {}='{}'", key, value);
             }
             return 0;
         }
         
-        let mut i = 0;
-        while i < args.len() {
-            let arg = &args[i];
-            
-            if arg == "--" {
-                // End of options
-                i += 1;
-                break;
+        // Parse options
+        match options.apply_options(&args) {
+            Ok(consumed) => {
+                // Handle remaining arguments as positional parameters
+                if consumed < args.len() {
+                    let pos_args: Vec<String> = args[consumed..].to_vec();
+                    options.set_positional_params(pos_args);
+                }
+                0
             }
-            
-            if arg.starts_with('-') && !arg.starts_with("--") {
-                // Handle options
-                for ch in arg[1..].chars() {
-                    match ch {
-                        'e' => env.set_var("__option_errexit".to_string(), "1".to_string()),
-                        'u' => env.set_var("__option_nounset".to_string(), "1".to_string()),
-                        'x' => env.set_var("__option_xtrace".to_string(), "1".to_string()),
-                        _ => {
-                            eprintln!("set: invalid option -{}", ch);
-                            return 1;
-                        }
-                    }
-                }
-            } else if arg.starts_with('+') {
-                // Clear options
-                for ch in arg[1..].chars() {
-                    match ch {
-                        'e' => env.unset_var("__option_errexit"),
-                        'u' => env.unset_var("__option_nounset"),
-                        'x' => env.unset_var("__option_xtrace"),
-                        _ => {
-                            eprintln!("set: invalid option +{}", ch);
-                            return 1;
-                        }
-                    }
-                }
-            } else {
-                // Set positional parameters
-                let mut pos_args = Vec::new();
-                for j in i..args.len() {
-                    pos_args.push(args[j].clone());
-                }
-                env.set_var("__positional_args".to_string(), pos_args.join(" "));
-                break;
+            Err(e) => {
+                eprintln!("{}", e);
+                1
             }
-            
-            i += 1;
         }
-        
-        0
     }
 }

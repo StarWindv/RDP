@@ -28,6 +28,7 @@ pub mod param_expand;
 pub mod subshell;
 pub mod process_substitution;
 pub mod job_control;
+pub mod options;
 
 // Re-export commonly used types
 pub use tokens::{Token, TokenType};
