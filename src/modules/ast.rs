@@ -185,13 +185,22 @@ pub enum AstNode {
     // Special Nodes
     // ============================================
     
-    /// Null command (empty line)
-    NullCommand,
+    /// Export command: export VAR
+    Export {
+        variables: Vec<String>,
+        tokens: Vec<Token>,
+    },
     
-    /// Error node
-    Error {
-        message: String,
-        token: Token,
+    /// Unset command: unset VAR
+    Unset {
+        variables: Vec<String>,
+        tokens: Vec<Token>,
+    },
+    
+    /// Readonly command: readonly VAR
+    Readonly {
+        variables: Vec<String>,
+        tokens: Vec<Token>,
     },
 }
 
@@ -485,9 +494,38 @@ impl fmt::Display for AstNode {
                 write!(f, ")")
             }
             
-            AstNode::NullCommand => write!(f, "NullCommand"),
+            AstNode::Export { variables, .. } => {
+                write!(f, "Export(")?;
+                for (i, var) in variables.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", var)?;
+                }
+                write!(f, ")")
+            }
             
-            AstNode::Error { message, .. } => write!(f, "Error({})", message),
+            AstNode::Unset { variables, .. } => {
+                write!(f, "Unset(")?;
+                for (i, var) in variables.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", var)?;
+                }
+                write!(f, ")")
+            }
+            
+            AstNode::Readonly { variables, .. } => {
+                write!(f, "Readonly(")?;
+                for (i, var) in variables.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", var)?;
+                }
+                write!(f, ")")
+            }
         }
     }
 }

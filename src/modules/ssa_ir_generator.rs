@@ -4,7 +4,7 @@
 use crate::modules::ast::{AstNode, AndOrOperator, CommandSeparator, RedirectType, CaseClause, ParameterOperation};
 use crate::modules::ssa_ir::{
     IrBuilder, Function, BasicBlockId, ValueId, ValueType,
-    Instruction, CmpOp,
+    Instruction, CmpOp, ParamExpandOp,
 };
 
 /// SSA IR Generator
@@ -154,14 +154,18 @@ impl SsaIrGenerator {
             }
             
             // ============================================
-            // Special Nodes
+            // Variable management commands
             // ============================================
-            AstNode::NullCommand => {
-                self.generate_null_command()
+            AstNode::Export { variables, .. } => {
+                self.generate_export_command(&variables)
             }
             
-            AstNode::Error { message, token } => {
-                self.generate_error(&message, token)
+            AstNode::Unset { variables, .. } => {
+                self.generate_unset_command(&variables)
+            }
+            
+            AstNode::Readonly { variables, .. } => {
+                self.generate_readonly_command(&variables)
             }
         }
     }
@@ -934,53 +938,53 @@ impl SsaIrGenerator {
         // Exit with command status
         self.add_instruction(Instruction::Exit(cmd_status));
         
-        // Parent block: read from pipe
+        // Parent block: read from pipe using command substitution
         self.set_current_block(parent_block);
         
         // Close write end (parent only needs read end)
         self.add_instruction(Instruction::CloseFd(write_fd));
         
-        // TODO: Actually read from pipe and return string
-        // For now, create a placeholder string
-        let result = self.create_value(ValueType::String);
-        let placeholder = if backticks {
-            format!("`command substitution`")
-        } else {
-            format!("$(command substitution)")
-        };
-        self.add_instruction(Instruction::ConstString(placeholder, result));
-        
-        // Close read end
-        self.add_instruction(Instruction::CloseFd(read_fd));
-        
-        // Wait for child process
+        // Wait for child process to get exit status
         let wait_status = self.create_value(ValueType::ExitStatus);
         self.add_instruction(Instruction::Wait(pid, wait_status));
+        
+        // Create result value for command substitution
+        let result = self.create_value(ValueType::String);
+        
+        // Use CommandSub instruction to capture output from read_fd
+        self.add_instruction(Instruction::CommandSub(wait_status, result));
+        
+        // Close read end after reading
+        self.add_instruction(Instruction::CloseFd(read_fd));
         
         result
     }
     
     fn generate_parameter_expansion(&mut self, parameter: &str, operation: Option<ParameterOperation>) -> ValueId {
-        // TODO: Implement parameter expansion
-        // For now, create a string value
-        let result = self.create_value(ValueType::String);
-        let expanded = match operation {
-            Some(op) => {
-                match op {
-                    ParameterOperation::UseDefault(default) => format!("${{{}}}", default),
-                    ParameterOperation::AssignDefault(default) => format!("${{:={}}}", default),
-                    ParameterOperation::ErrorIfNull(msg) => format!("${{:?{}}}", msg),
-                    ParameterOperation::UseAlternate(alt) => format!("${{:+{}}}", alt),
-                    ParameterOperation::Length => format!("${{#{}}}", parameter),
-                    ParameterOperation::RemoveSuffix(pattern) => format!("${{%{}}}", pattern),
-                    ParameterOperation::RemoveLargestSuffix(pattern) => format!("${{%%{}}}", pattern),
-                    ParameterOperation::RemovePrefix(pattern) => format!("${{#{}}}", pattern),
-                    ParameterOperation::RemoveLargestPrefix(pattern) => format!("${{##{}}}", pattern),
-                }
-            }
-            None => parameter.to_string(),
+        // Create parameter value
+        let param_val = self.create_value(ValueType::String);
+        self.add_instruction(Instruction::ConstString(parameter.to_string(), param_val));
+        
+        // Convert AST operation to SSA IR operation
+        let op = match operation {
+            Some(ast_op) => match ast_op {
+                ParameterOperation::UseDefault(word) => ParamExpandOp::UseDefault(word),
+                ParameterOperation::AssignDefault(word) => ParamExpandOp::AssignDefault(word),
+                ParameterOperation::ErrorIfNull(word) => ParamExpandOp::ErrorIfNull(word),
+                ParameterOperation::UseAlternate(word) => ParamExpandOp::UseAlternate(word),
+                ParameterOperation::Length => ParamExpandOp::Length,
+                ParameterOperation::RemoveSuffix(word) => ParamExpandOp::RemoveSuffix(word),
+                ParameterOperation::RemoveLargestSuffix(word) => ParamExpandOp::RemoveLargestSuffix(word),
+                ParameterOperation::RemovePrefix(word) => ParamExpandOp::RemovePrefix(word),
+                ParameterOperation::RemoveLargestPrefix(word) => ParamExpandOp::RemoveLargestPrefix(word),
+            },
+            None => ParamExpandOp::Simple,
         };
-        self.add_instruction(Instruction::ConstString(expanded, result));
+        
+        // Create result value
+        let result = self.create_value(ValueType::String);
+        self.add_instruction(Instruction::ParamExpand(param_val, op, result));
+        
         result
     }
     
@@ -1051,4 +1055,35 @@ impl SsaIrGenerator {
         self.add_instruction(Instruction::ConstInt(value, val));
         val
     }
-}
+}fn generate_export_command(&mut self, variables: &[String]) -> ValueId {
+        for var in variables {
+            let var_val = self.create_value_with_name(ValueType::String, var.clone());
+            self.add_instruction(Instruction::ExportVar(var_val));
+        }
+        
+        let result = self.create_value(ValueType::ExitStatus);
+        self.add_instruction(Instruction::ConstInt(0, result));
+        result
+    }
+    
+    fn generate_unset_command(&mut self, variables: &[String]) -> ValueId {
+        for var in variables {
+            let var_val = self.create_value_with_name(ValueType::String, var.clone());
+            self.add_instruction(Instruction::UnsetVar(var_val));
+        }
+        
+        let result = self.create_value(ValueType::ExitStatus);
+        self.add_instruction(Instruction::ConstInt(0, result));
+        result
+    }
+    
+    fn generate_readonly_command(&mut self, variables: &[String]) -> ValueId {
+        for var in variables {
+            let var_val = self.create_value_with_name(ValueType::String, var.clone());
+            self.add_instruction(Instruction::ReadonlyVar(var_val));
+        }
+        
+        let result = self.create_value(ValueType::ExitStatus);
+        self.add_instruction(Instruction::ConstInt(0, result));
+        result
+    }
