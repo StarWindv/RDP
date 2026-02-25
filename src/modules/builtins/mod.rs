@@ -16,6 +16,7 @@ pub mod shift;         // shift
 pub mod times;         // times
 pub mod trap;          // trap
 pub mod unset;         // unset
+pub mod local;         // local
 
 // POSIX standard utility builtins (usually built-in)
 pub mod alias;         // alias
@@ -61,6 +62,7 @@ pub use shift::Shift;
 pub use times::Times;
 pub use trap::Trap;
 pub use unset::Unset;
+pub use local::Local;
 pub use alias::Alias;
 pub use bg::Bg;
 pub use cd::Cd;

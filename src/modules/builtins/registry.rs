@@ -19,6 +19,7 @@ use super::shift::Shift;
 use super::times::Times;
 use super::trap::Trap;
 use super::unset::Unset;
+use super::local::Local;
 use super::alias::Alias;
 use super::bg::Bg;
 use super::cd::Cd;
@@ -64,6 +65,7 @@ impl BuiltinRegistry {
         registry.register(Box::new(Times));
         registry.register(Box::new(Trap));
         registry.register(Box::new(Unset));
+        registry.register(Box::new(Local));
         
         registry.register(Box::new(Alias));
         registry.register(Box::new(Bg));

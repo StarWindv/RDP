@@ -1,6 +1,7 @@
 //! readonly builtin command - make variables read-only
 
 use crate::modules::env::ShellEnv;
+use crate::modules::variables::get_variable_system;
 
 use crate::modules::builtins::registry::BuiltinCommand;
 
@@ -13,12 +14,13 @@ impl BuiltinCommand for Readonly {
     }
     
     fn execute(&self, args: &[String], env: &mut ShellEnv) -> i32 {
+        let mut vs = get_variable_system();
+        
         if args.is_empty() {
             // Print all read-only variables
-            for (key, value) in &env.vars {
-                if key.starts_with("__readonly_") {
-                    let var_name = &key[11..]; // Remove "__readonly_" prefix
-                    println!("readonly {}='{}'", var_name, value);
+            for (name, var) in vs.get_all_vars() {
+                if var.is_readonly() {
+                    println!("readonly {}='{}'", name, var.value);
                 }
             }
             return 0;
@@ -28,14 +30,25 @@ impl BuiltinCommand for Readonly {
             if arg.contains('=') {
                 // VAR=value format
                 let parts: Vec<&str> = arg.splitn(2, '=').collect();
-                let var = parts[0];
-                let val = if parts.len() > 1 { parts[1] } else { "" };
-                env.set_var(var.to_string(), val.to_string());
-                // Mark as read-only
-                env.set_var(format!("__readonly_{}", var), "1".to_string());
+                let var_name = parts[0].to_string();
+                let value = if parts.len() > 1 { parts[1] } else { "" }.to_string();
+                
+                // Set variable in environment (for backward compatibility)
+                env.set_var(var_name.clone(), value.clone());
+                
+                // Set in variable system as read-only
+                if let Err(e) = vs.readonly_with_value(var_name, value) {
+                    eprintln!("readonly: {}", e);
+                    return 1;
+                }
             } else {
                 // Just variable name, mark as read-only
-                env.set_var(format!("__readonly_{}", arg), "1".to_string());
+                let var_name = arg.to_string();
+                
+                if let Err(e) = vs.readonly(&var_name) {
+                    eprintln!("readonly: {}", e);
+                    return 1;
+                }
             }
         }
         

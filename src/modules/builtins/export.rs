@@ -1,6 +1,7 @@
 //! export builtin command - set export attribute for variables
 
 use crate::modules::env::ShellEnv;
+use crate::modules::variables::{get_variable_system, VariableScope};
 
 use crate::modules::builtins::registry::BuiltinCommand;
 
@@ -13,12 +14,13 @@ impl BuiltinCommand for Export {
     }
     
     fn execute(&self, args: &[String], env: &mut ShellEnv) -> i32 {
+        let mut vs = get_variable_system();
+        
         if args.is_empty() {
             // Print all exported variables
-            for (key, value) in &env.vars {
-                if key.starts_with("__exported_") {
-                    let var_name = &key[11..]; // Remove "__exported_" prefix
-                    println!("export {}='{}'", var_name, value);
+            for (name, var) in vs.get_all_vars() {
+                if var.is_exported() {
+                    println!("export {}='{}'", name, var.value);
                 }
             }
             return 0;
@@ -28,14 +30,30 @@ impl BuiltinCommand for Export {
             if arg.contains('=') {
                 // VAR=value format
                 let parts: Vec<&str> = arg.splitn(2, '=').collect();
-                let var = parts[0];
-                let val = if parts.len() > 1 { parts[1] } else { "" };
-                env.set_var(var.to_string(), val.to_string());
-                // Mark as exported
-                env.set_var(format!("__exported_{}", var), "1".to_string());
+                let var_name = parts[0].to_string();
+                let value = if parts.len() > 1 { parts[1] } else { "" }.to_string();
+                
+                // Set variable in environment (for backward compatibility)
+                env.set_var(var_name.clone(), value.clone());
+                
+                // Set in variable system with export attribute
+                if let Err(e) = vs.set(var_name.clone(), value) {
+                    eprintln!("export: {}", e);
+                    return 1;
+                }
+                
+                if let Err(e) = vs.export(&var_name) {
+                    eprintln!("export: {}", e);
+                    return 1;
+                }
             } else {
                 // Just variable name, mark as exported
-                env.set_var(format!("__exported_{}", arg), "1".to_string());
+                let var_name = arg.to_string();
+                
+                if let Err(e) = vs.export(&var_name) {
+                    eprintln!("export: {}", e);
+                    return 1;
+                }
             }
         }
         
