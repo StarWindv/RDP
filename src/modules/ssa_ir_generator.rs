@@ -167,6 +167,17 @@ impl SsaIrGenerator {
             AstNode::Readonly { variables, .. } => {
                 self.generate_readonly_command(&variables)
             }
+            
+            // ============================================
+            // Special Nodes
+            // ============================================
+            AstNode::NullCommand => {
+                self.generate_null_command()
+            }
+            
+            AstNode::Error { message, token } => {
+                self.generate_error(&message, token)
+            }
         }
     }
     
@@ -1055,7 +1066,7 @@ impl SsaIrGenerator {
         self.add_instruction(Instruction::ConstInt(value, val));
         val
     }
-}fn generate_export_command(&mut self, variables: &[String]) -> ValueId {
+fn generate_export_command(&mut self, variables: &[String]) -> ValueId {
         for var in variables {
             let var_val = self.create_value_with_name(ValueType::String, var.clone());
             self.add_instruction(Instruction::ExportVar(var_val));
@@ -1087,3 +1098,4 @@ impl SsaIrGenerator {
         self.add_instruction(Instruction::ConstInt(0, result));
         result
     }
+}
