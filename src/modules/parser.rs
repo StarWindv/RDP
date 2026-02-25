@@ -237,14 +237,14 @@ impl<'a> Parser<'a> {
                         self.advance();
                     }
                 }
-                TokenType::Question => {
-                    // $? special variable
-                    let question_token = token.clone();
-                    command_tokens.push(question_token);
+                TokenType::Dollar => {
+                    // $ special variable - treat as word
+                    let dollar_token = token.clone();
+                    command_tokens.push(dollar_token);
                     self.advance();
                     
                     // Create expanded argument
-                    let expanded = "$?".to_string();
+                    let expanded = "$".to_string();
                     if name.is_none() {
                         name = Some(expanded);
                     } else {

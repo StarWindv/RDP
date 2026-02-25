@@ -13,5 +13,5 @@ pub use modules::{
     ssa_ir::{Function, ValueId, BasicBlockId, ValueType, Instruction, CmpOp, IrBuilder},
     ssa_ir_generator::SsaIrGenerator,
     ssa_executor::SsaExecutor,
-    builtins::{Builtins, BuiltinCommand, BuiltinRegistry},
+    builtins::{Builtins, BuiltinRegistry},
 };

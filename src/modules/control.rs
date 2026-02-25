@@ -1,8 +1,8 @@
 //! Control structures for POSIX Shell
 //! Handles if, while, until, for, case, etc.
 
-use crate::ast::AstNode;
-use crate::env::ShellEnv;
+use crate::modules::ast::AstNode;
+use crate::modules::env::ShellEnv;
 use crate::modules::builtins::Builtins;
 
 /// Control structure executor
@@ -65,7 +65,7 @@ impl ControlExecutor {
     pub fn execute_case(
         &mut self,
         word: &str,
-        cases: &[crate::ast::CaseClause],
+        cases: &[crate::modules::ast::CaseClause],
     ) -> Result<i32, String> {
         // TODO: Implement case statement execution
         Ok(0)

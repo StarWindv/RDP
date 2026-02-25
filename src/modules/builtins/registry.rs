@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
 // Import only existing modules
 use super::dot::Dot;

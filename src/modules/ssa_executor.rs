@@ -110,7 +110,7 @@ impl SsaExecutor {
     /// Create a new SSA executor
     pub fn new() -> Self {
         Self {
-            builtins: Builtins,
+            builtins: Builtins::new(),
             env: ShellEnv::new(),
             functions: HashMap::new(),
             values: HashMap::new(),

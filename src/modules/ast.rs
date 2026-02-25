@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::tokens::Token;
+use crate::modules::tokens::Token;
 
 /// AST node types for POSIX Shell
 #[derive(Debug, Clone)]

@@ -3,8 +3,8 @@
 
 use std::collections::HashMap;
 
-use crate::ast::AstNode;
-use crate::env::ShellEnv;
+use crate::modules::ast::AstNode;
+use crate::modules::env::ShellEnv;
 
 /// Shell function definition
 #[derive(Debug, Clone)]

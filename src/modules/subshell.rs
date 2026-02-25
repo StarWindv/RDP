@@ -1,8 +1,8 @@
 //! Subshell execution for POSIX Shell
 //! Handles (command) subshells and command substitution
 
-use crate::ast::AstNode;
-use crate::env::ShellEnv;
+use crate::modules::ast::AstNode;
+use crate::modules::env::ShellEnv;
 use crate::modules::builtins::Builtins;
 
 /// Subshell executor for POSIX Shell

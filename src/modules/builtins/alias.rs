@@ -32,9 +32,4 @@ impl BuiltinCommand for Alias {
         
         0
     }
-    
-    fn help(&self) -> &'static str {
-        "alias: alias [name[=value] ...]\n\
-         Define or display aliases."
-    }
 }

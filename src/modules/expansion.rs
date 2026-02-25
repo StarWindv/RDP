@@ -1,7 +1,7 @@
 //! Word expansion for POSIX Shell
 //! Handles tilde expansion, parameter expansion, command substitution, arithmetic expansion, etc.
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
 /// Word expander for POSIX Shell
 pub struct WordExpander {

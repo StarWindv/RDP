@@ -4,8 +4,8 @@
 use std::process::{Command, Stdio};
 use std::fs;
 
-use crate::ast::AstNode;
-use crate::env::ShellEnv;
+use crate::modules::ast::AstNode;
+use crate::modules::env::ShellEnv;
 use crate::modules::builtins::Builtins;
 
 /// Process substitution executor for POSIX Shell

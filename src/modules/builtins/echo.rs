@@ -12,7 +12,7 @@ impl BuiltinCommand for Echo {
         "echo"
     }
     
-    fn execute(&self, args: &[String], _env: &ShellEnv) -> i32 {
+    fn execute(&self, args: &[String], _env: &mut ShellEnv) -> i32 {
         let mut first = true;
         for arg in args {
             if !first {

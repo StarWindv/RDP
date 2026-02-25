@@ -1,7 +1,7 @@
 //! Parameter expansion for POSIX Shell
 //! Handles ${parameter}, ${parameter:-word}, ${parameter#pattern}, etc.
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
 /// Parameter expander for POSIX Shell
 pub struct ParameterExpander {
@@ -74,15 +74,15 @@ impl ParameterExpander {
     
     /// Expand simple parameter: ${parameter}
     fn expand_simple(&self, param: &str) -> Result<String, String> {
-        match self.env.get_variable(param) {
-            Some(value) => Ok(value),
+        match self.env.get_var(param) {
+            Some(value) => Ok(value.clone()),
             None => Ok(String::new()), // Unset parameters expand to empty string
         }
     }
     
     /// Expand length operation: ${#parameter}
     fn expand_length(&self, param: &str) -> Result<String, String> {
-        match self.env.get_variable(param) {
+        match self.env.get_var(param) {
             Some(value) => Ok(value.len().to_string()),
             None => Ok("0".to_string()), // Length of unset parameter is 0
         }
@@ -90,8 +90,8 @@ impl ParameterExpander {
     
     /// Expand default value: ${parameter:-word} or ${parameter:=word}
     fn expand_default(&self, param: &str, word: &str, assign: bool) -> Result<String, String> {
-        match self.env.get_variable(param) {
-            Some(value) if !value.is_empty() => Ok(value),
+        match self.env.get_var(param) {
+            Some(value) if !value.is_empty() => Ok(value.clone()),
             _ => {
                 // Parameter is unset or null
                 let expanded_word = self.expand_word(word)?;
@@ -106,8 +106,8 @@ impl ParameterExpander {
     
     /// Expand error if null: ${parameter:?word}
     fn expand_error_if_null(&self, param: &str, word: &str) -> Result<String, String> {
-        match self.env.get_variable(param) {
-            Some(value) if !value.is_empty() => Ok(value),
+        match self.env.get_var(param) {
+            Some(value) if !value.is_empty() => Ok(value.clone()),
             _ => {
                 let message = if word.is_empty() {
                     format!("{}: parameter null or not set", param)
@@ -121,7 +121,7 @@ impl ParameterExpander {
     
     /// Expand alternate value: ${parameter:+word}
     fn expand_alternate(&self, param: &str, word: &str) -> Result<String, String> {
-        match self.env.get_variable(param) {
+        match self.env.get_var(param) {
             Some(value) if !value.is_empty() => self.expand_word(word),
             _ => Ok(String::new()),
         }

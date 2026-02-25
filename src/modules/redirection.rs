@@ -6,7 +6,7 @@ use std::io;
 use std::os::fd::{AsFd, AsRawFd, FromRawFd, RawFd};
 use std::process::Stdio;
 
-use crate::ast::RedirectType;
+use crate::modules::ast::RedirectType;
 
 /// Redirection handler for POSIX Shell
 pub struct RedirectionHandler;
@@ -25,7 +25,7 @@ impl RedirectionHandler {
         fd: Option<i32>,
     ) -> Result<RedirectionResult, String> {
         let fd = fd.unwrap_or(match redirect_type {
-            RedirectType::Input | RedirectType::LessAnd | RedirectType::LessGreat => 0, // stdin
+            RedirectType::Input | RedirectType::DupInput | RedirectType::ReadWrite => 0, // stdin
             _ => 1, // stdout
         });
         

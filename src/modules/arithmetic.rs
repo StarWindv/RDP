@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::tokens::Token;
+use crate::modules::tokens::Token;
 
 /// Arithmetic expression evaluator
 pub struct ArithmeticEvaluator {

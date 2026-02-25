@@ -3,8 +3,8 @@
 
 use std::process::{Command, Stdio};
 
-use crate::ast::AstNode;
-use crate::env::ShellEnv;
+use crate::modules::ast::AstNode;
+use crate::modules::env::ShellEnv;
 use crate::modules::builtins::Builtins;
 
 /// Pipeline executor for POSIX Shell
@@ -59,7 +59,7 @@ impl PipelineExecutor {
         cmd.args(args);
         
         // Set up environment variables
-        for (key, value) in self.env.get_all_variables() {
+        for (key, value) in self.env.vars.iter() {
             cmd.env(key, value);
         }
         

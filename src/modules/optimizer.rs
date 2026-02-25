@@ -1,7 +1,7 @@
 //! Optimizer for IR programs
 //! Currently just a NOP optimizer (no optimizations)
 
-use crate::ssa_ir::Function;
+use crate::modules::ssa_ir::Function;
 
 /// Optimizer for SSA IR
 pub struct Optimizer;

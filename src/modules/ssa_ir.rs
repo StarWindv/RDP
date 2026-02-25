@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::tokens::Token;
+use crate::modules::tokens::Token;
 
 // ============================================================================
 // Core Types

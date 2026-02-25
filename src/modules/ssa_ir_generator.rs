@@ -604,7 +604,7 @@ impl SsaIrGenerator {
         result
     }
     
-    fn generate_error(&mut self, message: &str, token: crate::tokens::Token) -> ValueId {
+    fn generate_error(&mut self, message: &str, token: crate::modules::tokens::Token) -> ValueId {
         let result = self.create_value(ValueType::ExitStatus);
         self.add_instruction(Instruction::Error(message.to_string(), token));
         self.add_instruction(Instruction::ConstInt(1, result));

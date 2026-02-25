@@ -12,7 +12,7 @@ impl BuiltinCommand for Pwd {
         "pwd"
     }
     
-    fn execute(&self, _args: &[String], env: &ShellEnv) -> i32 {
+    fn execute(&self, _args: &[String], env: &mut ShellEnv) -> i32 {
         println!("{}", env.current_dir);
         0
     }
