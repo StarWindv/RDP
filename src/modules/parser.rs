@@ -368,7 +368,12 @@ impl<'a> Parser<'a> {
         // Parse condition
         let condition = self.parse_command()?;
         
-        // Parse 'then'
+        // Allow optional semicolon or newline before 'then'
+        if self.check_token_type(&TokenType::Semicolon) || self.check_token_type(&TokenType::Newline) {
+            let sep_token = self.current_token.clone().unwrap();
+            tokens.push(sep_token);
+            self.advance();
+        }
         if !self.check_token_type(&TokenType::Then) {
             return Err(ParseError {
                 message: "Expected 'then' after if condition".to_string(),
