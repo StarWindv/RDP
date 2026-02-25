@@ -220,6 +220,17 @@ impl<'a> Parser<'a> {
                     command_tokens.push(token.clone());
                     self.advance();
                 }
+                TokenType::Number(n) => {
+                    // Convert number to string for command arguments
+                    let num_str = n.to_string();
+                    if name.is_none() {
+                        name = Some(num_str.clone());
+                    } else {
+                        args.push(num_str);
+                    }
+                    command_tokens.push(token.clone());
+                    self.advance();
+                }
                 TokenType::AssignmentWord(value) => {
                     if name.is_none() {
                         // This is a variable assignment before command name
