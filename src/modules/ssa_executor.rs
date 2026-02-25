@@ -22,6 +22,7 @@ pub struct SsaExecutor {
     current_block: Option<BasicBlockId>,
     program_counter: usize,
     call_stack: Vec<(String, BasicBlockId, usize)>, // (function, block, pc)
+    predecessor_blocks: HashMap<BasicBlockId, BasicBlockId>, // block -> predecessor
 }
 
 /// Executable value
@@ -119,6 +120,7 @@ impl SsaExecutor {
             current_block: None,
             program_counter: 0,
             call_stack: Vec::new(),
+            predecessor_blocks: HashMap::new(),
         }
     }
     
@@ -134,6 +136,7 @@ impl SsaExecutor {
         self.current_block = Some(func.entry_block);
         self.program_counter = 0;
         self.call_stack.clear();
+        self.predecessor_blocks.clear();
         
         // Execute
         let result = self.execute_block(func.entry_block, func);
@@ -143,6 +146,7 @@ impl SsaExecutor {
         // Clean up
         self.current_function = None;
         self.current_block = None;
+        self.predecessor_blocks.clear();
         
         result.as_status()
     }
@@ -153,19 +157,60 @@ impl SsaExecutor {
         self.current_block = Some(block_id);
         self.program_counter = 0;
         
+        // First, execute Phi nodes if we have a predecessor
+        let pred_block = self.predecessor_blocks.get(&block_id).cloned();
+        if let Some(pred_block) = pred_block {
+            for instr in &block.instructions {
+                if let Instruction::Phi(pairs, result) = instr {
+                    // Find the value from the predecessor block
+                    let mut phi_value = None;
+                    for (pred, value) in pairs {
+                        if pred == &pred_block {
+                            phi_value = Some(self.get_value(*value));
+                            break;
+                        }
+                    }
+                    
+                    // Set the phi result value
+                    if let Some(value) = phi_value {
+                        self.set_value(*result, value.clone());
+                    } else {
+                        // No matching predecessor, use default
+                        self.set_value(*result, ExecValue::Void);
+                    }
+                } else {
+                    // Not a Phi node, break
+                    break;
+                }
+            }
+        }
+        
+        // Execute remaining instructions
         for instr in &block.instructions {
+            // Skip Phi nodes (already handled)
+            if matches!(instr, Instruction::Phi(_, _)) {
+                self.program_counter += 1;
+                continue;
+            }
+            
             let _result = self.execute_instruction(instr, func);
             
             // Check for control flow instructions
             match instr {
                 Instruction::Jump(target) => {
+                    // Record predecessor for next block
+                    self.predecessor_blocks.insert(*target, block_id);
                     return self.execute_block(*target, func);
                 }
                 Instruction::Branch(cond, true_block, false_block) => {
                     let cond_val = self.get_value(*cond);
                     if cond_val.as_boolean() {
+                        // Record predecessor for true block
+                        self.predecessor_blocks.insert(*true_block, block_id);
                         return self.execute_block(*true_block, func);
                     } else {
+                        // Record predecessor for false block
+                        self.predecessor_blocks.insert(*false_block, block_id);
                         return self.execute_block(*false_block, func);
                     }
                 }

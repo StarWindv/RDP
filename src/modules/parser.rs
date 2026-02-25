@@ -210,12 +210,16 @@ impl<'a> Parser<'a> {
         
         // Parse command name and arguments
         while let Some(token) = &self.current_token {
+            println!("DEBUG PARSER SIMPLE_CMD: Processing token: {:?}", token.token_type);
             match &token.token_type {
                 TokenType::Word(word) | TokenType::Name(word) => {
+                    println!("DEBUG PARSER SIMPLE_CMD: Word/Name token: '{}'", word);
                     if name.is_none() {
                         name = Some(word.clone());
+                        println!("DEBUG PARSER SIMPLE_CMD: Set command name to '{}'", word);
                     } else {
                         args.push(word.clone());
+                        println!("DEBUG PARSER SIMPLE_CMD: Added argument '{}', args now: {:?}", word, args);
                     }
                     command_tokens.push(token.clone());
                     self.advance();
@@ -223,15 +227,19 @@ impl<'a> Parser<'a> {
                 TokenType::Number(n) => {
                     // Convert number to string for command arguments
                     let num_str = n.to_string();
+                    println!("DEBUG PARSER SIMPLE_CMD: Number token: {}, converted to '{}'", n, num_str);
                     if name.is_none() {
                         name = Some(num_str.clone());
+                        println!("DEBUG PARSER SIMPLE_CMD: Set command name to '{}' (from number)", num_str);
                     } else {
-                        args.push(num_str);
+                        args.push(num_str.clone());
+                        println!("DEBUG PARSER SIMPLE_CMD: Added argument '{}' (from number), args now: {:?}", num_str, args);
                     }
                     command_tokens.push(token.clone());
                     self.advance();
                 }
                 TokenType::AssignmentWord(value) => {
+                    println!("DEBUG PARSER SIMPLE_CMD: AssignmentWord token: '{}'", value);
                     if name.is_none() {
                         // This is a variable assignment before command name
                         assignments.push(AstNode::Assignment {
@@ -239,17 +247,22 @@ impl<'a> Parser<'a> {
                             value: value.splitn(2, '=').nth(1).unwrap_or("").to_string(),
                             token: token.clone(),
                         });
+                        println!("DEBUG PARSER SIMPLE_CMD: Added assignment: {}={}", 
+                            value.split('=').next().unwrap(),
+                            value.splitn(2, '=').nth(1).unwrap_or(""));
                         command_tokens.push(token.clone());
                         self.advance();
                     } else {
                         // This is an argument (e.g., export VAR=value)
                         args.push(value.clone());
+                        println!("DEBUG PARSER SIMPLE_CMD: Added argument '{}' (assignment word), args now: {:?}", value, args);
                         command_tokens.push(token.clone());
                         self.advance();
                     }
                 }
                 TokenType::Dollar => {
                     // $ special variable - treat as word
+                    println!("DEBUG PARSER SIMPLE_CMD: Dollar token");
                     let dollar_token = token.clone();
                     command_tokens.push(dollar_token);
                     self.advance();
@@ -257,13 +270,16 @@ impl<'a> Parser<'a> {
                     // Create expanded argument
                     let expanded = "$".to_string();
                     if name.is_none() {
-                        name = Some(expanded);
+                        name = Some(expanded.clone());
+                        println!("DEBUG PARSER SIMPLE_CMD: Set command name to '{}' (from dollar)", expanded);
                     } else {
-                        args.push(expanded);
+                        args.push(expanded.clone());
+                        println!("DEBUG PARSER SIMPLE_CMD: Added argument '{}' (from dollar), args now: {:?}", expanded, args);
                     }
                 }
                 _ => {
                     // Unknown token type, break
+                    println!("DEBUG PARSER SIMPLE_CMD: Unknown token type, breaking: {:?}", token.token_type);
                     break;
                 }
             }
@@ -366,9 +382,16 @@ impl<'a> Parser<'a> {
         self.advance(); // Skip redirect operator
         
         if let Some(token) = self.current_token.clone() {
-            if let TokenType::Word(word) = token.token_type {
-                self.advance();
-                return Ok(word.clone());
+            match token.token_type {
+                TokenType::Word(word) => {
+                    self.advance();
+                    return Ok(word.clone());
+                }
+                TokenType::Number(n) => {
+                    self.advance();
+                    return Ok(n.to_string());
+                }
+                _ => {}
             }
         }
         

@@ -201,8 +201,37 @@ impl<'a> Lexer<'a> {
                 // Numbers (for file descriptors)
                 // ============================================
                 '0'..='9' => {
+                    // Check if this is a file descriptor for redirection
+                    // In POSIX shell, numbers are only special when followed by redirection operators
                     let number = self.read_number();
-                    Token::new(TokenType::Number(number), number.to_string(), start_line, start_column)
+                    
+                    // Look ahead to see if next token is a redirection operator
+                    let mut lookahead = self.chars.clone();
+                    let mut is_redirect_fd = false;
+                    
+                    // Skip whitespace
+                    while let Some(&c) = lookahead.peek() {
+                        if c == ' ' || c == '\t' || c == '\r' {
+                            lookahead.next();
+                        } else {
+                            break;
+                        }
+                    }
+                    
+                    // Check if next non-whitespace character is a redirection operator
+                    if let Some(&c) = lookahead.peek() {
+                        if c == '<' || c == '>' {
+                            is_redirect_fd = true;
+                        }
+                    }
+                    
+                    if is_redirect_fd {
+                        // This is a file descriptor for redirection
+                        Token::new(TokenType::Number(number), number.to_string(), start_line, start_column)
+                    } else {
+                        // This is just a regular number argument, treat it as a word
+                        Token::new(TokenType::Word(number.to_string()), number.to_string(), start_line, start_column)
+                    }
                 }
                 
                 // ============================================
