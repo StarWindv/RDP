@@ -1,8 +1,8 @@
 //! times builtin command - print process times
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// times builtin command
 pub struct Times;

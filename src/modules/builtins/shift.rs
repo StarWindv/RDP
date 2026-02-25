@@ -1,8 +1,8 @@
 //! shift builtin command - shift positional parameters
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// shift builtin command
 pub struct Shift;

@@ -1,8 +1,8 @@
 //! eval builtin command - evaluate arguments as shell commands
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// eval builtin command
 pub struct Eval;

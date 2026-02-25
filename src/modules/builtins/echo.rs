@@ -1,8 +1,8 @@
 //! echo builtin command - display arguments
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// echo builtin command
 pub struct Echo;

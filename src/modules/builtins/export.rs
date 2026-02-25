@@ -1,8 +1,8 @@
 //! export builtin command - set export attribute for variables
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// export builtin command
 pub struct Export;

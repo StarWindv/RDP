@@ -1,8 +1,7 @@
 //! break builtin command - exit from a loop
 
-use crate::env::ShellEnv;
-
-use super::BuiltinCommand;
+use crate::modules::env::ShellEnv;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// break builtin command
 pub struct Break;

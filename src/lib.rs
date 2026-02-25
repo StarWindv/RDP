@@ -7,22 +7,11 @@ pub mod modules;
 pub use modules::{
     tokens::{Token, TokenType},
     lexer::Lexer,
-    ast::AstNode,
+    ast::{AstNode, AndOrOperator, CommandSeparator, ParseError, RedirectType, CaseClause, ParameterOperation},
     parser::Parser,
     env::ShellEnv,
-    ssa_ir::{Function, ValueId, BasicBlockId, Instruction},
+    ssa_ir::{Function, ValueId, BasicBlockId, ValueType, Instruction, CmpOp, IrBuilder},
     ssa_ir_generator::SsaIrGenerator,
     ssa_executor::SsaExecutor,
-    builtins::Builtins,
+    builtins::{Builtins, BuiltinCommand, BuiltinRegistry},
 };
-
-// For backward compatibility
-pub use modules as tokens;
-pub use modules as lexer;
-pub use modules as ast;
-pub use modules as parser;
-pub use modules as ssa_ir;
-pub use modules as ssa_ir_generator;
-pub use modules as ssa_executor;
-pub use modules as builtins;
-pub use modules as env;

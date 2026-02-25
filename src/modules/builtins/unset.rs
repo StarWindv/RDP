@@ -1,8 +1,8 @@
 //! unset builtin command - unset variables
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// unset builtin command
 pub struct Unset;

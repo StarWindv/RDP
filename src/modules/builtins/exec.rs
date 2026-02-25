@@ -2,9 +2,9 @@
 
 use std::process::Command;
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// exec builtin command
 pub struct Exec;

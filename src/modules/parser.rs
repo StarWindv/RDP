@@ -4,8 +4,8 @@ use std::iter::Peekable;
 use std::vec::IntoIter;
 
 use crate::modules::lexer::Lexer;
-use crate::tokens::{Token, TokenType};
-use crate::ast::{AstNode, CommandSeparator, ParseError, RedirectType};
+use crate::modules::tokens::{Token, TokenType};
+use crate::modules::ast::{AstNode, CommandSeparator, ParseError, RedirectType};
 
 /// Parser for shell scripts
 pub struct Parser<'a> {

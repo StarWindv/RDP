@@ -1,8 +1,8 @@
 //! SSA IR Generator: Converts AST to SSA IR
 //! This implements the complete Lexer -> Parser -> IRGenerator[SSA] architecture
 
-use crate::ast::{AstNode, AndOrOperator, CommandSeparator, RedirectType, CaseClause, ParameterOperation};
-use crate::ssa_ir::{
+use crate::modules::ast::{AstNode, AndOrOperator, CommandSeparator, RedirectType, CaseClause, ParameterOperation};
+use crate::modules::ssa_ir::{
     IrBuilder, Function, BasicBlockId, ValueId, ValueType,
     Instruction, CmpOp,
 };

@@ -1,8 +1,8 @@
 //! true builtin command - return success
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// true builtin command
 pub struct True;

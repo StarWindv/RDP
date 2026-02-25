@@ -2,7 +2,7 @@
 
 use std::fs;
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
 use crate::modules::builtins::registry::BuiltinCommand;
 

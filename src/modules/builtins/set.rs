@@ -1,8 +1,8 @@
 //! set builtin command - set shell options
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// set builtin command
 pub struct Set;

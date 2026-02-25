@@ -1,8 +1,8 @@
 //! cd builtin command - change directory
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// cd builtin command
 pub struct Cd;

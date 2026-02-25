@@ -1,8 +1,8 @@
 //! help builtin command - show help
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// help builtin command
 pub struct Help;

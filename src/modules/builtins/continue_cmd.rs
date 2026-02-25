@@ -1,8 +1,7 @@
 //! continue builtin command - continue loop iteration
 
-use crate::env::ShellEnv;
-
-use super::BuiltinCommand;
+use crate::modules::env::ShellEnv;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// continue builtin command
 pub struct Continue;

@@ -1,8 +1,8 @@
 //! pwd builtin command - print working directory
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// pwd builtin command
 pub struct Pwd;

@@ -4,12 +4,12 @@
 use std::collections::HashMap;
 use std::process::Command;
 
-use crate::ssa_ir::{
+use crate::modules::ssa_ir::{
     Function, BasicBlockId, ValueId, ValueType,
     Instruction, CmpOp,
 };
-use crate::builtins::Builtins;
-use crate::env::ShellEnv;
+use crate::modules::builtins::Builtins;
+use crate::modules::env::ShellEnv;
 
 /// SSA IR Executor
 pub struct SsaExecutor {

@@ -1,8 +1,8 @@
 //! trap builtin command - handle signals
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// trap builtin command
 pub struct Trap;

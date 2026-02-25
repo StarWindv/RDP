@@ -2,7 +2,7 @@
 //! Handle command aliases
 
 use crate::modules::builtins::registry::BuiltinCommand;
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
 /// Alias builtin command
 pub struct Alias;

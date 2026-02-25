@@ -1,8 +1,8 @@
 //! readonly builtin command - make variables read-only
 
-use crate::env::ShellEnv;
+use crate::modules::env::ShellEnv;
 
-use super::BuiltinCommand;
+use crate::modules::builtins::registry::BuiltinCommand;
 
 /// readonly builtin command
 pub struct Readonly;
