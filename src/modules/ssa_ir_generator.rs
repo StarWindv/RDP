@@ -657,25 +657,146 @@ impl SsaIrGenerator {
         result
     }
     
-    fn generate_redirection(&mut self, command: AstNode, _redirect_type: RedirectType, _target: &str, _fd: Option<i32>) -> ValueId {
+    fn generate_redirection(&mut self, command: AstNode, redirect_type: RedirectType, target: &str, fd: Option<i32>) -> ValueId {
         // Generate command first
         let cmd_result = self.generate_node(command);
         
-        // TODO: Implement redirection
-        // For now, just return command result
+        // Get file descriptor (default based on redirect type)
+        let target_fd = fd.unwrap_or_else(|| {
+            match redirect_type {
+                RedirectType::Input | 
+                RedirectType::HereDoc | 
+                RedirectType::HereDocStrip |
+                RedirectType::DupInput |
+                RedirectType::ReadWrite => 0, // stdin
+                _ => 1, // stdout
+            }
+        });
+        
+        // Create value for file descriptor
+        let fd_val = self.create_value(ValueType::FileDescriptor);
+        self.add_instruction(Instruction::ConstInt(target_fd, fd_val));
+        
+        // Convert redirect type to SSA IR mode
+        let mode = match redirect_type {
+            RedirectType::Input => crate::modules::ssa_ir::RedirectMode::Read,
+            RedirectType::Output => crate::modules::ssa_ir::RedirectMode::Write,
+            RedirectType::Append => crate::modules::ssa_ir::RedirectMode::Append,
+            RedirectType::HereDoc => crate::modules::ssa_ir::RedirectMode::HereDoc,
+            RedirectType::HereDocStrip => crate::modules::ssa_ir::RedirectMode::HereDocStrip,
+            RedirectType::DupInput => crate::modules::ssa_ir::RedirectMode::DupRead,
+            RedirectType::DupOutput => crate::modules::ssa_ir::RedirectMode::DupWrite,
+            RedirectType::ReadWrite => crate::modules::ssa_ir::RedirectMode::ReadWrite,
+            RedirectType::Clobber => crate::modules::ssa_ir::RedirectMode::Write, // Same as output for now
+        };
+        
+        // Add redirection instruction
+        self.add_instruction(Instruction::Redirect(
+            fd_val,
+            target.to_string(),
+            mode,
+        ));
+        
         cmd_result
     }
     
     fn generate_background(&mut self, command: AstNode) -> ValueId {
-        // TODO: Implement background execution
-        // For now, just execute in foreground
-        self.generate_node(command)
+        // TODO: Implement proper background execution
+        // For now, we'll execute in foreground but mark it as background
+        // In proper implementation, we would fork and not wait
+        
+        // Fork a process
+        let pid = self.create_value(ValueType::ProcessId);
+        self.add_instruction(Instruction::Fork(pid));
+        
+        // Create blocks for parent and child
+        let parent_block = self.create_block_with_label("bg_parent".to_string());
+        let child_block = self.create_block_with_label("bg_child".to_string());
+        
+        // Branch based on fork result
+        let zero_const = self.create_const_int(0);
+        let is_child = self.create_value(ValueType::Boolean);
+        self.add_instruction(Instruction::Cmp(pid, zero_const, CmpOp::Eq, is_child));
+        self.add_instruction(Instruction::Branch(is_child, child_block, parent_block));
+        
+        // Child block: execute command
+        self.set_current_block(child_block);
+        let cmd_status = self.generate_node(command);
+        self.add_instruction(Instruction::Exit(cmd_status));
+        
+        // Parent block: don't wait, return success immediately
+        self.set_current_block(parent_block);
+        let result = self.create_value(ValueType::ExitStatus);
+        self.add_instruction(Instruction::ConstInt(0, result));
+        
+        result
     }
     
-    fn generate_command_substitution(&mut self, command: AstNode, _backticks: bool) -> ValueId {
-        // TODO: Implement command substitution
-        // For now, just execute the command
-        self.generate_node(command)
+    fn generate_command_substitution(&mut self, command: AstNode, backticks: bool) -> ValueId {
+        // Command substitution needs to capture output of a command
+        // We'll create a pipe, execute the command with output redirected to the pipe,
+        // then read from the pipe
+        
+        // Create a pipe for capturing output
+        let read_fd = self.create_value(ValueType::FileDescriptor);
+        let write_fd = self.create_value(ValueType::FileDescriptor);
+        self.add_instruction(Instruction::CreatePipe(read_fd, write_fd));
+        
+        // Fork to execute command
+        let pid = self.create_value(ValueType::ProcessId);
+        self.add_instruction(Instruction::Fork(pid));
+        
+        // Create blocks for parent and child
+        let parent_block = self.create_block_with_label("cmdsub_parent".to_string());
+        let child_block = self.create_block_with_label("cmdsub_child".to_string());
+        
+        // Branch based on fork result
+        let zero_const = self.create_const_int(0);
+        let is_child = self.create_value(ValueType::Boolean);
+        self.add_instruction(Instruction::Cmp(pid, zero_const, CmpOp::Eq, is_child));
+        self.add_instruction(Instruction::Branch(is_child, child_block, parent_block));
+        
+        // Child block: redirect stdout to pipe, execute command
+        self.set_current_block(child_block);
+        
+        // Redirect stdout to write end of pipe
+        let dup_result = self.create_value(ValueType::FileDescriptor);
+        self.add_instruction(Instruction::DupFd(write_fd, 1, dup_result));
+        
+        // Close both ends of pipe (child only needs write end)
+        self.add_instruction(Instruction::CloseFd(read_fd));
+        self.add_instruction(Instruction::CloseFd(write_fd));
+        
+        // Execute command
+        let cmd_status = self.generate_node(command);
+        
+        // Exit with command status
+        self.add_instruction(Instruction::Exit(cmd_status));
+        
+        // Parent block: read from pipe
+        self.set_current_block(parent_block);
+        
+        // Close write end (parent only needs read end)
+        self.add_instruction(Instruction::CloseFd(write_fd));
+        
+        // TODO: Actually read from pipe and return string
+        // For now, create a placeholder string
+        let result = self.create_value(ValueType::String);
+        let placeholder = if backticks {
+            format!("`command substitution`")
+        } else {
+            format!("$(command substitution)")
+        };
+        self.add_instruction(Instruction::ConstString(placeholder, result));
+        
+        // Close read end
+        self.add_instruction(Instruction::CloseFd(read_fd));
+        
+        // Wait for child process
+        let wait_status = self.create_value(ValueType::ExitStatus);
+        self.add_instruction(Instruction::Wait(pid, wait_status));
+        
+        result
     }
     
     fn generate_parameter_expansion(&mut self, parameter: &str, operation: Option<ParameterOperation>) -> ValueId {
