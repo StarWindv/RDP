@@ -877,27 +877,36 @@ impl SsaIrGenerator {
     }
     
     fn generate_background(&mut self, command: AstNode) -> ValueId {
-        // Generate command first
-        let cmd_result = self.generate_node(command);
+        // For background execution, we need to fork and execute command in child process
+        // Parent process should return success immediately without waiting
         
-        // For background execution, we need to mark it as background
-        // and not wait for it
+        // Fork a new process
+        let pid = self.create_value(ValueType::ProcessId);
+        self.add_instruction(Instruction::Fork(pid));
         
-        // Create a special background execution instruction
-        // For now, we'll just execute in foreground but mark it as background
-        // In proper implementation, we would fork and not wait
+        // Create blocks for parent and child
+        let parent_block = self.create_block_with_label("background_parent".to_string());
+        let child_block = self.create_block_with_label("background_child".to_string());
         
-        // Mark as background by returning success immediately
-        // without waiting for command completion
+        // Branch based on fork result
+        let zero_const = self.create_const_int(0);
+        let is_child = self.create_value(ValueType::Boolean);
+        self.add_instruction(Instruction::Cmp(pid, zero_const, CmpOp::Eq, is_child));
+        self.add_instruction(Instruction::Branch(is_child, child_block, parent_block));
+        
+        // Child block: execute the command
+        self.set_current_block(child_block);
+        let cmd_status = self.generate_node(command);
+        self.add_instruction(Instruction::Exit(cmd_status));
+        
+        // Parent block: return success immediately (don't wait for child)
+        self.set_current_block(parent_block);
+        
+        // TODO: Register the background job with job control
+        // For now, just return success
         
         let result = self.create_value(ValueType::ExitStatus);
         self.add_instruction(Instruction::ConstInt(0, result));
-        
-        // Note: The command is still executed (in foreground) 
-        // because we called generate_node above
-        // In a real implementation, we would need to modify
-        // the command execution to be in background
-        
         result
     }
     

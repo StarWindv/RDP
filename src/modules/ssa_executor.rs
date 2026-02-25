@@ -259,9 +259,13 @@ impl SsaExecutor {
             
             // Process operations
             Instruction::Fork(result) => {
-                // TODO: Implement fork
-                // For now, return pid 0 (current process)
-                let value = ExecValue::ProcessId(0);
+                // Simulate fork by returning a dummy PID
+                // In a real implementation, we would create a new process
+                // For simulation purposes, we'll use a simple counter
+                static FORK_COUNTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
+                let pid = FORK_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                
+                let value = ExecValue::ProcessId(pid);
                 self.set_value(*result, value.clone());
                 value
             }
