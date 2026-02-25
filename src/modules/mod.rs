@@ -12,7 +12,7 @@ pub mod env;
 pub mod ssa_ir;
 pub mod ssa_ir_generator;
 pub mod ssa_executor;
-pub mod optimizer;
+pub mod optimize;
 
 // Builtins modules
 pub mod builtins;
@@ -41,3 +41,4 @@ pub use ssa_ir::{Function, ValueId, BasicBlockId, Instruction};
 pub use ssa_ir_generator::SsaIrGenerator;
 pub use ssa_executor::SsaExecutor;
 pub use builtins::Builtins;
+

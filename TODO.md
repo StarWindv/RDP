@@ -15,6 +15,40 @@
 
 ## P0: 核心POSIX功能 (必须实现)
 
+### 0. 前置任务
+关于项目前端的问题
+现在的shell并不能正确处理多参数命令，示例如下:
+```plaintext
+DEBUG: Parsing input: pytree -L 0
+DEBUG: Lexer produced 3 tokens
+DEBUG TOKEN 0: Name("pytree")
+DEBUG TOKEN 1: Word("-L")
+DEBUG TOKEN 2: Number(0)
+DEBUG PARSER: Starting parse
+DEBUG PARSER: Parse successful, AST type: Discriminant(0)
+DEBUG: Parser produced AST: SimpleCommand(pytree -L)
+DEBUG: SSA IR generated: function main(
+) {
+.0:
+    %2 = const_string '-L'
+    %1 = call_external 'pytree' %2
+    return %1
+}
+
+DEBUG: Starting execution of function: main
+DEBUG EXPAND: expanding '-L'
+DEBUG EXPAND: result = '-L'
+usage: pytree [-h] [-a] [-d] [-L LEVEL] [-f] [-I EXCLUDE]
+              [-P PATTERN] [--color {always,auto,never}]
+              [-ns] [-fs] [-v] [-lic] [-sc] [-cl]
+              [directory]
+pytree: error: argument -L/--level: expected one argument
+DEBUG: Execution completed with status: 2
+DEBUG: Execution completed with status: 2
+Exit status: 2
+```
+可以看到，我们的参数0并没有正确传递给二进制程序
+
 ### 1. 作业控制系统
 **状态**: 完全缺失
 **缺失功能**:
@@ -389,3 +423,4 @@
 *创建时间: 2026-02-25*
 *基于: Compare.md 分析结果*
 *目标: 对齐POSIX标准*
+

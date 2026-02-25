@@ -824,3 +824,4 @@ impl<'a> Parser<'a> {
         self.current_token.is_none()
     }
 }
+
