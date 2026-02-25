@@ -471,12 +471,23 @@ impl SsaExecutor {
                 ExecValue::Void
             }
             
-            // Special
+            // Special operations
             Instruction::Nop => ExecValue::Void,
-            
             Instruction::Error(msg, token) => {
                 eprintln!("Error at {}:{}: {}", token.line, token.column, msg);
                 ExecValue::ExitStatus(1)
+            }
+            Instruction::DebugPrint(value) => {
+                let val = self.get_value(*value);
+                println!("DEBUG: {} = {:?}", value, val);
+                ExecValue::Void
+            }
+            
+            // TODO: Implement all new instructions
+            _ => {
+                // Placeholder for unimplemented instructions
+                println!("WARNING: Unimplemented instruction: {:?}", instr);
+                ExecValue::Void
             }
         }
     }
