@@ -10,6 +10,7 @@ use crate::modules::ssa_ir::{
 };
 use crate::modules::builtins::Builtins;
 use crate::modules::env::ShellEnv;
+use crate::modules::job_control;
 
 /// SSA IR Executor
 pub struct SsaExecutor {

@@ -877,33 +877,26 @@ impl SsaIrGenerator {
     }
     
     fn generate_background(&mut self, command: AstNode) -> ValueId {
-        // TODO: Implement proper background execution
-        // For now, we'll execute in foreground but mark it as background
+        // Generate command first
+        let cmd_result = self.generate_node(command);
+        
+        // For background execution, we need to mark it as background
+        // and not wait for it
+        
+        // Create a special background execution instruction
+        // For now, we'll just execute in foreground but mark it as background
         // In proper implementation, we would fork and not wait
         
-        // Fork a process
-        let pid = self.create_value(ValueType::ProcessId);
-        self.add_instruction(Instruction::Fork(pid));
+        // Mark as background by returning success immediately
+        // without waiting for command completion
         
-        // Create blocks for parent and child
-        let parent_block = self.create_block_with_label("bg_parent".to_string());
-        let child_block = self.create_block_with_label("bg_child".to_string());
-        
-        // Branch based on fork result
-        let zero_const = self.create_const_int(0);
-        let is_child = self.create_value(ValueType::Boolean);
-        self.add_instruction(Instruction::Cmp(pid, zero_const, CmpOp::Eq, is_child));
-        self.add_instruction(Instruction::Branch(is_child, child_block, parent_block));
-        
-        // Child block: execute command
-        self.set_current_block(child_block);
-        let cmd_status = self.generate_node(command);
-        self.add_instruction(Instruction::Exit(cmd_status));
-        
-        // Parent block: don't wait, return success immediately
-        self.set_current_block(parent_block);
         let result = self.create_value(ValueType::ExitStatus);
         self.add_instruction(Instruction::ConstInt(0, result));
+        
+        // Note: The command is still executed (in foreground) 
+        // because we called generate_node above
+        // In a real implementation, we would need to modify
+        // the command execution to be in background
         
         result
     }

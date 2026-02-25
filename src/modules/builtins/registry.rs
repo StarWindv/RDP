@@ -20,11 +20,15 @@ use super::times::Times;
 use super::trap::Trap;
 use super::unset::Unset;
 use super::alias::Alias;
+use super::bg::Bg;
 use super::cd::Cd;
 use super::echo::Echo;
 use super::false_cmd::False;
+use super::fg::Fg;
+use super::jobs::Jobs;
 use super::pwd::Pwd;
 use super::true_cmd::True;
+use super::wait::Wait;
 use super::help::Help;
 
 /// Trait for built-in commands
@@ -62,11 +66,15 @@ impl BuiltinRegistry {
         registry.register(Box::new(Unset));
         
         registry.register(Box::new(Alias));
+        registry.register(Box::new(Bg));
         registry.register(Box::new(Cd));
         registry.register(Box::new(Echo));
         registry.register(Box::new(False));
+        registry.register(Box::new(Fg));
+        registry.register(Box::new(Jobs));
         registry.register(Box::new(Pwd));
         registry.register(Box::new(True));
+        registry.register(Box::new(Wait));
         registry.register(Box::new(Help));
         
         registry
