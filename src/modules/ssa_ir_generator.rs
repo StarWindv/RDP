@@ -221,14 +221,118 @@ impl SsaIrGenerator {
             return self.generate_null_command();
         }
         
-        // For now, execute commands sequentially
-        // TODO: Implement proper pipeline with pipes
+        // Single command - no pipe needed
+        if commands.len() == 1 {
+            return self.generate_node(*commands[0].clone());
+        }
+        
+        // For multiple commands, we need to create a pipeline
+        // We'll create a chain of processes connected by pipes
+        
+        // Create pipes for connecting commands
+        // For N commands, we need N-1 pipes
+        let mut pipes = Vec::new();
+        for i in 0..commands.len() - 1 {
+            let read_fd = self.create_value(ValueType::FileDescriptor);
+            let write_fd = self.create_value(ValueType::FileDescriptor);
+            self.add_instruction(Instruction::CreatePipe(read_fd, write_fd));
+            pipes.push((read_fd, write_fd));
+        }
+        
+        // Execute each command in the pipeline
+        let mut pids = Vec::new();
         let mut last_status = self.create_value(ValueType::ExitStatus);
         self.add_instruction(Instruction::ConstInt(0, last_status));
         
-        for cmd in commands {
-            let status = self.generate_node(*cmd);
+        for (i, cmd) in commands.iter().enumerate() {
+            // Fork for each command in the pipeline
+            let pid = self.create_value(ValueType::ProcessId);
+            self.add_instruction(Instruction::Fork(pid));
+            
+            // Create blocks for parent and child
+            let parent_block = self.create_block_with_label(format!("pipe_parent_{}", i));
+            let child_block = self.create_block_with_label(format!("pipe_child_{}", i));
+            
+            // Branch based on fork result
+            let zero_const = self.create_const_int(0);
+            let is_child = self.create_value(ValueType::Boolean);
+            self.add_instruction(Instruction::Cmp(pid, zero_const, CmpOp::Eq, is_child));
+            self.add_instruction(Instruction::Branch(is_child, child_block, parent_block));
+            
+            // Child block: execute command with proper redirections
+            self.set_current_block(child_block);
+            
+            // Set up pipe redirections
+            if i > 0 {
+                // Not first command: read from previous pipe
+                let (prev_read, _) = &pipes[i - 1];
+                // Redirect stdin from previous pipe's read end
+                let dup_result = self.create_value(ValueType::FileDescriptor);
+                self.add_instruction(Instruction::DupFd(*prev_read, 0, dup_result));
+                self.add_instruction(Instruction::CloseFd(*prev_read));
+            }
+            
+            if i < commands.len() - 1 {
+                // Not last command: write to next pipe
+                let (_, next_write) = &pipes[i];
+                // Redirect stdout to next pipe's write end
+                let dup_result = self.create_value(ValueType::FileDescriptor);
+                self.add_instruction(Instruction::DupFd(*next_write, 1, dup_result));
+                self.add_instruction(Instruction::CloseFd(*next_write));
+            }
+            
+            // Close all pipe file descriptors in child
+            for (read_fd, write_fd) in &pipes {
+                if i == 0 || (i > 0 && read_fd != &pipes[i - 1].0) {
+                    self.add_instruction(Instruction::CloseFd(*read_fd));
+                }
+                if i == commands.len() - 1 || (i < commands.len() - 1 && write_fd != &pipes[i].1) {
+                    self.add_instruction(Instruction::CloseFd(*write_fd));
+                }
+            }
+            
+            // Execute the command
+            let cmd_status = self.generate_node(*cmd.clone());
+            self.add_instruction(Instruction::Exit(cmd_status));
+            
+            // Parent block: store PID and continue
+            self.set_current_block(parent_block);
+            pids.push(pid);
+            
+            // Close pipe ends that parent doesn't need
+            if i > 0 {
+                let (prev_read, _) = &pipes[i - 1];
+                self.add_instruction(Instruction::CloseFd(*prev_read));
+            }
+            if i < commands.len() - 1 {
+                let (_, next_write) = &pipes[i];
+                self.add_instruction(Instruction::CloseFd(*next_write));
+            }
+            
+            // Continue with next command or wait for all
+            if i < commands.len() - 1 {
+                // More commands to fork
+                let next_block = self.create_block_with_label(format!("pipe_next_{}", i));
+                self.add_instruction(Instruction::Jump(next_block));
+                self.set_current_block(next_block);
+            }
+        }
+        
+        // Wait for all child processes
+        let wait_block = self.create_block_with_label("pipe_wait".to_string());
+        self.set_current_block(wait_block);
+        
+        // Wait for the last process (others will have been waited for as they exit)
+        if let Some(last_pid) = pids.last() {
+            let status = self.create_value(ValueType::ExitStatus);
+            self.add_instruction(Instruction::Wait(*last_pid, status));
             last_status = status;
+        }
+        
+        // Close any remaining pipe file descriptors
+        for (read_fd, write_fd) in &pipes {
+            self.add_instruction(Instruction::CloseFd(*read_fd));
+            self.add_instruction(Instruction::CloseFd(*write_fd));
         }
         
         last_status
