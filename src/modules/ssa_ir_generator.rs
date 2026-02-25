@@ -524,11 +524,106 @@ impl SsaIrGenerator {
         result
     }
     
-    fn generate_case_statement(&mut self, _word: &str, _cases: Vec<CaseClause>) -> ValueId {
-        // TODO: Implement case statement
-        // For now, return success
+    fn generate_case_statement(&mut self, word: &str, cases: Vec<CaseClause>) -> ValueId {
+        // Case statement: case word in pattern1) commands;; pattern2) commands;; esac
+        
+        // Evaluate the word
+        let word_val = self.create_value(ValueType::String);
+        self.add_instruction(Instruction::ConstString(word.to_string(), word_val));
+        
+        // Create blocks for each case and a default/exit block
+        let mut case_blocks = Vec::new();
+        let exit_block = self.create_block_with_label("case_exit".to_string());
+        let default_block = self.create_block_with_label("case_default".to_string());
+        
+        // Generate blocks for each case
+        for (i, case) in cases.iter().enumerate() {
+            let case_block = self.create_block_with_label(format!("case_{}", i));
+            let next_block = if i < cases.len() - 1 {
+                self.create_block_with_label(format!("case_next_{}", i))
+            } else {
+                default_block
+            };
+            
+            case_blocks.push((case_block, next_block, case));
+        }
+        
+        // Start with first case
+        let mut current_block = self.current_block.unwrap();
+        
+        for (i, (case_block, next_block, case)) in case_blocks.iter().enumerate() {
+            // Jump to case block
+            self.set_current_block(current_block);
+            self.add_instruction(Instruction::Jump(*case_block));
+            
+            // Case block: check patterns
+            self.set_current_block(*case_block);
+            
+            // For each pattern in this case
+            let mut pattern_checks = Vec::new();
+            for pattern in &case.patterns {
+                // TODO: Implement pattern matching
+                // For now, just do string equality
+                let pattern_val = self.create_value(ValueType::String);
+                self.add_instruction(Instruction::ConstString(pattern.clone(), pattern_val));
+                
+                let match_result = self.create_value(ValueType::Boolean);
+                self.add_instruction(Instruction::Cmp(
+                    word_val,
+                    pattern_val,
+                    CmpOp::Eq,
+                    match_result,
+                ));
+                
+                pattern_checks.push(match_result);
+            }
+            
+            // Combine pattern checks with OR
+            let mut combined_match = if let Some(first) = pattern_checks.first() {
+                *first
+            } else {
+                // No patterns, always match (default case)
+                let always_true = self.create_value(ValueType::Boolean);
+                self.add_instruction(Instruction::ConstBool(true, always_true));
+                always_true
+            };
+            
+            for check in pattern_checks.iter().skip(1) {
+                let new_combined = self.create_value(ValueType::Boolean);
+                self.add_instruction(Instruction::Or(combined_match, *check, new_combined));
+                combined_match = new_combined;
+            }
+            
+            // Branch: if matched, execute body, else go to next case
+            let body_block = self.create_block_with_label(format!("case_body_{}", i));
+            self.add_instruction(Instruction::Branch(
+                combined_match,
+                body_block,
+                *next_block,
+            ));
+            
+            // Body block: execute case commands
+            self.set_current_block(body_block);
+            let body_result = self.generate_compound_command(
+                case.body.iter().map(|c| c.clone()).collect()
+            );
+            
+            // Jump to exit after executing body
+            self.add_instruction(Instruction::Jump(exit_block));
+            
+            // Set up for next case
+            current_block = *next_block;
+        }
+        
+        // Default block: no pattern matched (do nothing)
+        self.set_current_block(default_block);
+        self.add_instruction(Instruction::Jump(exit_block));
+        
+        // Exit block
+        self.set_current_block(exit_block);
         let result = self.create_value(ValueType::ExitStatus);
         self.add_instruction(Instruction::ConstInt(0, result));
+        
         result
     }
     
@@ -644,14 +739,80 @@ impl SsaIrGenerator {
     }
     
     fn generate_select_statement(&mut self, variable: &str, items: Vec<String>, body: Vec<Box<AstNode>>) -> ValueId {
-        // TODO: Implement select statement
-        // For now, treat as for loop
-        self.generate_for_loop(variable, items, body)
+        // Select statement: select var in list; do commands; done
+        // Presents a menu of items and executes body with selected item
+        
+        // Create selection variable
+        let var_val = self.create_value_with_name(ValueType::String, variable.to_string());
+        self.add_instruction(Instruction::AllocVar(variable.to_string(), var_val));
+        
+        // Create loop for selection
+        let loop_start = self.create_block_with_label("select_start".to_string());
+        let loop_body = self.create_block_with_label("select_body".to_string());
+        let loop_exit = self.create_block_with_label("select_exit".to_string());
+        
+        // Jump to start
+        self.add_instruction(Instruction::Jump(loop_start));
+        
+        // Start block: display menu
+        self.set_current_block(loop_start);
+        
+        // TODO: Display menu and get user input
+        // For now, just use first item
+        
+        if let Some(first_item) = items.first() {
+            // Set variable to first item
+            let item_val = self.create_value(ValueType::String);
+            self.add_instruction(Instruction::ConstString(first_item.clone(), item_val));
+            self.add_instruction(Instruction::Store(var_val, item_val));
+            
+            // Jump to body
+            self.add_instruction(Instruction::Jump(loop_body));
+        } else {
+            // No items, exit
+            self.add_instruction(Instruction::Jump(loop_exit));
+        }
+        
+        // Body block: execute commands with selected variable
+        self.set_current_block(loop_body);
+        let body_result = self.generate_compound_command(body.clone());
+        
+        // Check if we should continue (placeholder - in real select, user can break)
+        let continue_val = self.create_value(ValueType::Boolean);
+        self.add_instruction(Instruction::ConstBool(false, continue_val)); // Exit after one iteration for now
+        
+        self.add_instruction(Instruction::Branch(
+            continue_val,
+            loop_start,
+            loop_exit,
+        ));
+        
+        // Exit block
+        self.set_current_block(loop_exit);
+        let result = self.create_value(ValueType::ExitStatus);
+        self.add_instruction(Instruction::ConstInt(0, result));
+        
+        result
     }
     
-    fn generate_function_definition(&mut self, _name: &str, _body: Vec<Box<AstNode>>) -> ValueId {
-        // TODO: Implement function definition
+    fn generate_function_definition(&mut self, name: &str, body: Vec<Box<AstNode>>) -> ValueId {
+        // Function definition: name() { body; }
+        // In SSA IR, we create a new function
+        
+        // For now, we'll just store the function body in a placeholder
+        // In a full implementation, we would create a new Function and store it
+        
+        // Create a function value placeholder
+        let func_val = self.create_value_with_name(ValueType::String, name.to_string());
+        
+        // Store function name (placeholder for actual function)
+        let func_name_val = self.create_value(ValueType::String);
+        self.add_instruction(Instruction::ConstString(name.to_string(), func_name_val));
+        self.add_instruction(Instruction::Store(func_val, func_name_val));
+        
+        // TODO: Actually create and store function body
         // For now, just return success
+        
         let result = self.create_value(ValueType::ExitStatus);
         self.add_instruction(Instruction::ConstInt(0, result));
         result
