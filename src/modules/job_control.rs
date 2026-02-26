@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, Duration};
+use std::time::{SystemTime};
 
 use crate::modules::env::ShellEnv;
 
@@ -25,7 +25,7 @@ pub struct Job {
     pub status: JobStatus,
     pub foreground: bool,
     pub start_time: SystemTime,
-    pub children: Vec<u32>, // Store PIDs instead of Child objects
+    pub children: Vec<Child>,
 }
 
 /// Job control system
@@ -47,7 +47,7 @@ impl JobControl {
     }
     
     /// Add a new job
-    pub fn add_job(&mut self, pgid: i32, command: String, foreground: bool) -> usize {
+    pub fn add_job(&mut self, pgid: i32, command: String, foreground: bool, child: Child) -> usize {
         let id = self.next_job_id;
         self.next_job_id += 1;
         
@@ -58,7 +58,7 @@ impl JobControl {
             status: JobStatus::Running,
             foreground,
             start_time: SystemTime::now(),
-            children: Vec::new(),
+            children: vec![child],
         };
         
         self.jobs.insert(id, job);
@@ -68,13 +68,6 @@ impl JobControl {
         }
         
         id
-    }
-    
-    /// Add a child process to a job
-    pub fn add_child_to_job(&mut self, job_id: usize, child: Child) {
-        if let Some(job) = self.jobs.get_mut(&job_id) {
-            job.children.push(child.id());
-        }
     }
     
     /// Update job status
@@ -186,17 +179,28 @@ impl JobControl {
     /// Wait for job to complete
     pub fn wait_for_job(&mut self, job_id: usize) -> Result<i32, String> {
         if let Some(job) = self.jobs.get_mut(&job_id) {
-            // TODO: Actually wait for process group
-            // For now, simulate waiting
+            let mut last_status = 0;
             
-            // Simulate some delay
-            std::thread::sleep(Duration::from_millis(100));
+            // Wait for all child processes in the job
+            for child in &mut job.children {
+                match child.wait() {
+                    Ok(status) => {
+                        last_status = status.code().unwrap_or(128);
+                    }
+                    Err(e) => {
+                        return Err(format!("Failed to wait for process: {}", e));
+                    }
+                }
+            }
             
             // Mark as done
             job.status = JobStatus::Done;
             
-            // Return exit status (simulated)
-            Ok(0)
+            if job.foreground {
+                self.current_foreground_job = None;
+            }
+            
+            Ok(last_status)
         } else {
             Err(format!("Job {} not found", job_id))
         }
@@ -268,8 +272,7 @@ pub fn execute_background(command: &str, args: &[String], env: &ShellEnv) -> Res
             let job_control = get_job_control();
             let mut jc = job_control.lock().unwrap();
             
-            let job_id = jc.add_job(pid, format!("{} {}", command, args.join(" ")), false);
-            jc.add_child_to_job(job_id, child);
+            let job_id = jc.add_job(pid, format!("{} {}", command, args.join(" ")), false, child);
             
             Ok(job_id)
         }
@@ -293,13 +296,12 @@ pub fn execute_foreground(command: &str, args: &[String], env: &ShellEnv) -> Res
     
     // Start process in foreground
     match cmd.spawn() {
-        Ok(mut child) => {
+        Ok(child) => {
             let pid = child.id() as i32;
             let job_control = get_job_control();
             let mut jc = job_control.lock().unwrap();
             
-            let job_id = jc.add_job(pid, format!("{} {}", command, args.join(" ")), true);
-            jc.add_child_to_job(job_id, child);
+            let job_id = jc.add_job(pid, format!("{} {}", command, args.join(" ")), true, child);
             
             // Wait for process to complete
             match jc.wait_for_job(job_id) {
