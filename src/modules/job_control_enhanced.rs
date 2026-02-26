@@ -97,8 +97,8 @@ impl EnhancedJobControl {
     #[cfg(unix)]
     fn give_terminal_to(&self, pgid: i32) -> Result<(), String> {
         use nix::{
-            fcntl::{fcntl, FcntlArg, OFlag},
-            sys::termios::tcsetpgrp,
+            fcntl,
+            term::tcsetpgrp,
         };
         
         // Set the process group as foreground process group
@@ -112,7 +112,7 @@ impl EnhancedJobControl {
     /// Take back terminal control
     #[cfg(unix)]
     fn take_terminal_back(&self) -> Result<(), String> {
-        use nix::sys::termios::tcsetpgrp;
+        use nix::term::tcsetpgrp;
         
         // Set shell's process group as foreground
         let fd = 0; // Standard input file descriptor
@@ -444,7 +444,7 @@ pub fn init_enhanced_job_control() -> Result<(), String> {
         
         // Take control of terminal
         let fd = 0; // Standard input
-        if let Err(e) = nix::sys::termios::tcsetpgrp(fd, shell_pid) {
+        if let Err(e) = nix::term::tcsetpgrp(fd, shell_pid) {
             return Err(format!("Failed to take terminal control: {}", e));
         }
     }
@@ -528,7 +528,7 @@ pub fn execute_with_job_control(
                 
                 // If this is a foreground job, take control of terminal
                 if foreground {
-                    if let Err(e) = nix::sys::termios::tcsetpgrp(0, child_pid) {
+                    if let Err(e) = nix::term::tcsetpgrp(0, child_pid) {
                         eprintln!("Failed to take terminal: {}", e);
                     }
                 }
@@ -561,7 +561,7 @@ pub fn execute_with_job_control(
 }
 
 /// Built-in jobs command
-pub fn jobs_builtin(args: &[String]) -> i32 {
+pub fn jobs_builtin(_args: &[String]) -> i32 {
     let job_control = get_enhanced_job_control();
     let jc = job_control.lock().unwrap();
     

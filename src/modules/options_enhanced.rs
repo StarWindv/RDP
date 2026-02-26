@@ -4,14 +4,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-/// Enhanced shell options with inheritance support
-#[derive(Debug, Clone)]
-pub struct EnhancedShellOptions {
-    options: HashMap<ShellOption, bool>,
-    positional_params: Vec<String>,
-    parent: Option<Arc<Mutex<EnhancedShellOptions>>>,
-    changed_options: HashMap<ShellOption, bool>, // Options changed from parent
-}
+use crate::modules::options::ShellOption;
 
 impl EnhancedShellOptions {
     /// Create new root shell options with defaults
