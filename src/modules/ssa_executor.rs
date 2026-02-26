@@ -10,7 +10,7 @@ use crate::modules::ssa_ir::{
 };
 use crate::modules::builtins::Builtins;
 use crate::modules::env::ShellEnv;
-use crate::modules::job_control;
+use crate::modules::variables::get_variable_system;
 
 /// SSA IR Executor
 pub struct SsaExecutor {
@@ -585,7 +585,14 @@ impl SsaExecutor {
         }
         command.current_dir(&self.env.current_dir);
         
-        // Set environment variables
+        // Set environment variables from VariableSystem
+        let vs = get_variable_system();
+        let exported_vars = vs.get_exported_vars();
+        for (key, value) in &exported_vars {
+            command.env(key, value);
+        }
+        
+        // Also set from env (for backward compatibility)
         for (key, value) in &self.env.vars {
             command.env(key, value);
         }
@@ -609,6 +616,8 @@ impl SsaExecutor {
     
     /// Execute parameter expansion
     fn execute_param_expand(&self, param: &str, op: &crate::modules::ssa_ir::ParamExpandOp) -> String {
+        let vs = get_variable_system();
+        
         match op {
             crate::modules::ssa_ir::ParamExpandOp::Simple => {
                 // Simple parameter expansion: ${parameter} or $parameter
@@ -619,33 +628,39 @@ impl SsaExecutor {
                     return std::process::id().to_string();
                 } else if param == "0" {
                     return "rs-dash-pro".to_string();
-                } else if let Some(value) = self.env.get_var(param) {
-                    return value.clone();
+                } else if let Some(var) = vs.get(param) {
+                    return var.value.clone();
                 } else {
                     return String::new();
                 }
             }
             crate::modules::ssa_ir::ParamExpandOp::UseDefault(word) => {
                 // ${parameter:-word}
-                if let Some(value) = self.env.get_var(param) {
-                    value.clone()
+                if let Some(var) = vs.get(param) {
+                    var.value.clone()
                 } else {
                     word.clone()
                 }
             }
             crate::modules::ssa_ir::ParamExpandOp::AssignDefault(word) => {
                 // ${parameter:=word}
-                if let Some(value) = self.env.get_var(param) {
-                    value.clone()
+                let mut vs_mut = get_variable_system();
+                if let Some(var) = vs_mut.get(param) {
+                    var.value.clone()
                 } else {
-                    // TODO: Actually assign the value to environment
-                    word.clone()
+                    // Assign the value to environment
+                    if let Err(e) = vs_mut.set(param.to_string(), word.clone()) {
+                        eprintln!("Parameter expansion error: {}", e);
+                        String::new()
+                    } else {
+                        word.clone()
+                    }
                 }
             }
             crate::modules::ssa_ir::ParamExpandOp::ErrorIfNull(word) => {
                 // ${parameter:?word}
-                if let Some(value) = self.env.get_var(param) {
-                    value.clone()
+                if let Some(var) = vs.get(param) {
+                    var.value.clone()
                 } else {
                     eprintln!("{}", word);
                     String::new()
@@ -653,7 +668,7 @@ impl SsaExecutor {
             }
             crate::modules::ssa_ir::ParamExpandOp::UseAlternate(word) => {
                 // ${parameter:+word}
-                if self.env.get_var(param).is_some() {
+                if vs.get(param).is_some() {
                     word.clone()
                 } else {
                     String::new()
@@ -661,19 +676,19 @@ impl SsaExecutor {
             }
             crate::modules::ssa_ir::ParamExpandOp::Length => {
                 // ${#parameter}
-                if let Some(value) = self.env.get_var(param) {
-                    value.len().to_string()
+                if let Some(var) = vs.get(param) {
+                    var.value.len().to_string()
                 } else {
                     "0".to_string()
                 }
             }
             crate::modules::ssa_ir::ParamExpandOp::RemoveSuffix(pattern) => {
                 // ${parameter%pattern}
-                if let Some(value) = self.env.get_var(param) {
-                    if value.ends_with(pattern) {
-                        value[..value.len() - pattern.len()].to_string()
+                if let Some(var) = vs.get(param) {
+                    if var.value.ends_with(pattern) {
+                        var.value[..var.value.len() - pattern.len()].to_string()
                     } else {
-                        value.clone()
+                        var.value.clone()
                     }
                 } else {
                     String::new()
@@ -681,8 +696,8 @@ impl SsaExecutor {
             }
             crate::modules::ssa_ir::ParamExpandOp::RemoveLargestSuffix(pattern) => {
                 // ${parameter%%pattern}
-                if let Some(value) = self.env.get_var(param) {
-                    let mut result = value.clone();
+                if let Some(var) = vs.get(param) {
+                    let mut result = var.value.clone();
                     while result.ends_with(pattern) {
                         result = result[..result.len() - pattern.len()].to_string();
                     }
@@ -693,11 +708,11 @@ impl SsaExecutor {
             }
             crate::modules::ssa_ir::ParamExpandOp::RemovePrefix(pattern) => {
                 // ${parameter#pattern}
-                if let Some(value) = self.env.get_var(param) {
-                    if value.starts_with(pattern) {
-                        value[pattern.len()..].to_string()
+                if let Some(var) = vs.get(param) {
+                    if var.value.starts_with(pattern) {
+                        var.value[pattern.len()..].to_string()
                     } else {
-                        value.clone()
+                        var.value.clone()
                     }
                 } else {
                     String::new()
@@ -705,8 +720,8 @@ impl SsaExecutor {
             }
             crate::modules::ssa_ir::ParamExpandOp::RemoveLargestPrefix(pattern) => {
                 // ${parameter##pattern}
-                if let Some(value) = self.env.get_var(param) {
-                    let mut result = value.clone();
+                if let Some(var) = vs.get(param) {
+                    let mut result = var.value.clone();
                     while result.starts_with(pattern) {
                         result = result[pattern.len()..].to_string();
                     }
@@ -717,15 +732,15 @@ impl SsaExecutor {
             }
             crate::modules::ssa_ir::ParamExpandOp::Substring(offset) => {
                 // ${parameter:offset}
-                if let Some(value) = self.env.get_var(param) {
+                if let Some(var) = vs.get(param) {
                     let start = if *offset >= 0 {
                         *offset as usize
                     } else {
-                        let len = value.len() as i32;
+                        let len = var.value.len() as i32;
                         std::cmp::max(0, len + *offset) as usize
                     };
-                    if start < value.len() {
-                        value[start..].to_string()
+                    if start < var.value.len() {
+                        var.value[start..].to_string()
                     } else {
                         String::new()
                     }
@@ -735,16 +750,16 @@ impl SsaExecutor {
             }
             crate::modules::ssa_ir::ParamExpandOp::SubstringWithLength(offset, length) => {
                 // ${parameter:offset:length}
-                if let Some(value) = self.env.get_var(param) {
+                if let Some(var) = vs.get(param) {
                     let start = if *offset >= 0 {
                         *offset as usize
                     } else {
-                        let len = value.len() as i32;
+                        let len = var.value.len() as i32;
                         std::cmp::max(0, len + *offset) as usize
                     };
-                    if start < value.len() {
-                        let end = std::cmp::min(value.len(), start + *length as usize);
-                        value[start..end].to_string()
+                    if start < var.value.len() {
+                        let end = std::cmp::min(var.value.len(), start + *length as usize);
+                        var.value[start..end].to_string()
                     } else {
                         String::new()
                     }
@@ -754,27 +769,27 @@ impl SsaExecutor {
             }
             crate::modules::ssa_ir::ParamExpandOp::ReplaceFirst(pattern, replacement) => {
                 // ${parameter/pattern/replacement}
-                if let Some(value) = self.env.get_var(param) {
-                    value.replacen(pattern, replacement, 1)
+                if let Some(var) = vs.get(param) {
+                    var.value.replacen(pattern, replacement, 1)
                 } else {
                     String::new()
                 }
             }
             crate::modules::ssa_ir::ParamExpandOp::ReplaceAll(pattern, replacement) => {
                 // ${parameter//pattern/replacement}
-                if let Some(value) = self.env.get_var(param) {
-                    value.replace(pattern, replacement)
+                if let Some(var) = vs.get(param) {
+                    var.value.replace(pattern, replacement)
                 } else {
                     String::new()
                 }
             }
             crate::modules::ssa_ir::ParamExpandOp::ReplacePrefix(pattern, replacement) => {
                 // ${parameter/#pattern/replacement}
-                if let Some(value) = self.env.get_var(param) {
-                    if value.starts_with(pattern) {
-                        replacement.clone() + &value[pattern.len()..]
+                if let Some(var) = vs.get(param) {
+                    if var.value.starts_with(pattern) {
+                        replacement.clone() + &var.value[pattern.len()..]
                     } else {
-                        value.clone()
+                        var.value.clone()
                     }
                 } else {
                     String::new()
@@ -782,11 +797,11 @@ impl SsaExecutor {
             }
             crate::modules::ssa_ir::ParamExpandOp::ReplaceSuffix(pattern, replacement) => {
                 // ${parameter/%pattern/replacement}
-                if let Some(value) = self.env.get_var(param) {
-                    if value.ends_with(pattern) {
-                        value[..value.len() - pattern.len()].to_string() + replacement
+                if let Some(var) = vs.get(param) {
+                    if var.value.ends_with(pattern) {
+                        var.value[..var.value.len() - pattern.len()].to_string() + replacement
                     } else {
-                        value.clone()
+                        var.value.clone()
                     }
                 } else {
                     String::new()
