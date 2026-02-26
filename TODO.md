@@ -16,61 +16,8 @@
 ## P0: 核心POSIX功能 (必须实现)
 
 ### 0. 前置任务
-关于项目前端的问题
-现在的shell并不能正确处理多参数命令，示例如下:
-```plaintext
-$ pytree -L 0
-DEBUG: Parsing input: pytree -L 0
-DEBUG: Lexer produced 3 tokens
-DEBUG TOKEN 0: Name("pytree")
-DEBUG TOKEN 1: Word("-L")
-DEBUG TOKEN 2: Word("0")
-DEBUG PARSER: Starting parse
-DEBUG PARSER SIMPLE_CMD: Processing token: Name("pytree")
-DEBUG PARSER SIMPLE_CMD: Word/Name token: 'pytree'
-DEBUG PARSER SIMPLE_CMD: Set command name to 'pytree'
-DEBUG PARSER SIMPLE_CMD: Processing token: Word("-L")
-DEBUG PARSER SIMPLE_CMD: Word/Name token: '-L'
-DEBUG PARSER SIMPLE_CMD: Added argument '-L', args now: ["-L"]
-DEBUG PARSER SIMPLE_CMD: Processing token: Word("0")
-DEBUG PARSER SIMPLE_CMD: Word/Name token: '0'
-DEBUG PARSER SIMPLE_CMD: Added argument '0', args now: ["-L", "0"]
-DEBUG PARSER: Parse successful, AST type: Discriminant(0)
-DEBUG: Parser produced AST: SimpleCommand(pytree -L 0)
-DEBUG: SSA IR generated: function main(
-) {
-.0:
-    %2 = const_string '-L'
-    %3 = const_string '0'
-    %1 = call_external 'pytree' %2 %3
-    return %1
-}
 
-DEBUG: Starting execution of function: main
-DEBUG EXPAND: expanding '-L'
-DEBUG EXPAND: result = '-L'
-DEBUG EXPAND: expanding '0'
-DEBUG EXPAND: result = '0'
-.
-├── build.rs
-├── Cargo.lock
-├── Cargo.toml
-├── Compare.md
-├── IMPLEMENTATION_PLAN.md
-├── PROGRESS_SUMMARY.md
-├── README.md
-├── REFACTOR_PLAN.md
-├── src
-├── SSA_DESIGN.md
-├── target
-└── TODO.md
-
-2 directories, 10 files
-The folder counter does not include the current directory(root).
-DEBUG: Execution completed with status: 0
-DEBUG: Execution completed with status: 0
-```
-可以看到，我们的程序居然才尝试展开选项，但是POSIX Shell只展开特殊变量如~、$变量或表达式、?等
+暂无前置任务
 
 ### 1. 作业控制系统
 **状态**: 完全缺失

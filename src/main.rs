@@ -98,7 +98,7 @@ fn parse_and_execute_ssa(input: &str) -> Result<i32, String> {
     let mut generator = SsaIrGenerator::new();
     let ssa_func = generator.generate(ast);
     
-    println!("DEBUG: SSA IR generated: {}", ssa_func);
+    println!("DEBUG: SSA IR generated:\n{}", ssa_func);
     
     // TODO: Optimization (NOP for now)
     
@@ -182,3 +182,4 @@ fn show_version() {
     println!("SSA: Static Single Assignment form for better optimization");
     println!("Enhanced Lexer: Full POSIX Shell tokenization support");
 }
+
