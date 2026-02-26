@@ -5,6 +5,8 @@ use std::collections::HashMap;
 
 use crate::modules::ast::AstNode;
 use crate::modules::env::ShellEnv;
+use crate::modules::variables::{get_variable_system, VariableSystem};
+use crate::modules::builtins::Builtins;
 
 /// Shell function definition
 #[derive(Debug, Clone)]
@@ -28,10 +30,51 @@ impl ShellFunction {
     }
     
     /// Execute the function with given arguments
-    pub fn execute(&mut self, args: &[String], env: &mut ShellEnv) -> Result<i32, String> {
-        // TODO: Implement function execution
-        // For now, just return success
-        Ok(0)
+    pub fn execute(&mut self, args: &[String], env: &mut ShellEnv, builtins: &Builtins) -> Result<i32, String> {
+        // Enter function scope
+        let mut vs = get_variable_system();
+        vs.enter_scope();
+        
+        // Set positional parameters
+        // $0 is function name, $1-$n are arguments
+        vs.set("0".to_string(), self.name.clone())
+            .map_err(|e| format!("Failed to set $0: {}", e))?;
+        
+        for (i, arg) in args.iter().enumerate() {
+            let param_name = (i + 1).to_string();
+            vs.set(param_name, arg.clone())
+                .map_err(|e| format!("Failed to set ${}: {}", i + 1, e))?;
+        }
+        
+        // Set special parameter $# (number of arguments)
+        vs.set("#".to_string(), args.len().to_string())
+            .map_err(|e| format!("Failed to set $#: {}", e))?;
+        
+        // Set special parameter $* and $@ (all arguments)
+        let all_args = args.join(" ");
+        vs.set("*".to_string(), all_args.clone())
+            .map_err(|e| format!("Failed to set $*: {}", e))?;
+        vs.set("@".to_string(), all_args)
+            .map_err(|e| format!("Failed to set $@: {}", e))?;
+        
+        // Execute function body
+        let mut exit_status = 0;
+        
+        for node in &self.body {
+            // TODO: Actually execute AST nodes
+            // For now, just simulate execution
+            println!("Executing function {}: {}", self.name, node);
+            
+            // In a real implementation, we would use SSA executor
+            // For now, just return success
+            exit_status = 0;
+        }
+        
+        // Exit function scope
+        vs.exit_scope()
+            .map_err(|e| format!("Failed to exit function scope: {}", e))?;
+        
+        Ok(exit_status)
     }
     
     /// Set a local variable
@@ -54,14 +97,16 @@ impl ShellFunction {
 pub struct FunctionManager {
     functions: HashMap<String, ShellFunction>,
     env: ShellEnv,
+    builtins: Builtins,
 }
 
 impl FunctionManager {
     /// Create a new function manager
-    pub fn new(env: ShellEnv) -> Self {
+    pub fn new(env: ShellEnv, builtins: Builtins) -> Self {
         Self {
             functions: HashMap::new(),
             env,
+            builtins,
         }
     }
     
@@ -80,7 +125,7 @@ impl FunctionManager {
     /// Execute a function by name
     pub fn execute(&mut self, name: &str, args: &[String]) -> Result<i32, String> {
         match self.functions.get_mut(name) {
-            Some(function) => function.execute(args, &mut self.env),
+            Some(function) => function.execute(args, &mut self.env, &self.builtins),
             None => Err(format!("Function not found: {}", name)),
         }
     }
@@ -130,13 +175,15 @@ impl FunctionManager {
     /// Handle return statement from function
     pub fn handle_return(&self, exit_status: i32) -> Result<(), String> {
         // TODO: Implement return handling
+        // This would need to break out of function execution
         Ok(())
     }
     
     /// Handle local variable declaration
     pub fn handle_local(&mut self, name: &str, value: Option<&str>) -> Result<(), String> {
-        // TODO: Implement local variable handling
-        Ok(())
+        let mut vs = get_variable_system();
+        let value = value.unwrap_or("");
+        vs.local(name.to_string(), Some(value.to_string()))
     }
 }
 
@@ -147,7 +194,8 @@ mod tests {
     #[test]
     fn test_function_manager_creation() {
         let env = ShellEnv::new();
-        let manager = FunctionManager::new(env);
+        let builtins = Builtins::new();
+        let manager = FunctionManager::new(env, builtins);
         
         // Just test that it can be created
         assert!(true);
@@ -169,7 +217,8 @@ mod tests {
     #[test]
     fn test_function_definition() {
         let env = ShellEnv::new();
-        let mut manager = FunctionManager::new(env);
+        let builtins = Builtins::new();
+        let mut manager = FunctionManager::new(env, builtins);
         
         // Define a function
         let body = vec![];

@@ -560,11 +560,13 @@ impl SsaExecutor {
                 value
             }
             
-            // TODO: Implement all other instructions
-            _ => {
-                // Placeholder for unimplemented instructions
-                println!("WARNING: Unimplemented instruction: {:?}", instr);
-                ExecValue::Void
+            // Function call
+            Instruction::CallFunction(func_name, args, result) => {
+                // TODO: Implement function call
+                // For now, just return success
+                let value = ExecValue::ExitStatus(0);
+                self.set_value(*result, value.clone());
+                value
             }
         }
     }
