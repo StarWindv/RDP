@@ -523,7 +523,14 @@ pub fn execute_with_job_control(
                 }
                 Ok(ForkResult::Child) => {
                     // Child process
-                    // Reset signal handlers
+                    // Reset signal handlers to default using sigaction
+                    use nix::sys::signal::{SigAction, SaFlags, SigHandler, SigSet};
+                    let default_action = SigAction::new(
+                        SigHandler::SigDfl,
+                        SaFlags::empty(),
+                        SigSet::empty()
+                    );
+                    
                     let signals = [
                         Signal::SIGINT,
                         Signal::SIGQUIT,
@@ -533,9 +540,9 @@ pub fn execute_with_job_control(
                         Signal::SIGCHLD,
                     ];
                     
-                    unsafe {
-                        for sig in &signals {
-                            let _ = signal::signal(*sig, signal::SigHandler::SigDfl);
+                    for sig in &signals {
+                        if let Err(e) = nix::sys::signal::sigaction(*sig, &default_action) {
+                            eprintln!("Failed to reset signal handler for {:?}: {}", sig, e);
                         }
                     }
                     
