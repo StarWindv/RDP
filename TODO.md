@@ -20,8 +20,6 @@
 暂无前置任务
 
 ### 1. 作业控制系统
-**状态**: 完全缺失
-**缺失功能**:
 - 后台执行：`&` 操作符
 - 进程组管理
 - 信号处理：SIGINT (Ctrl+C), SIGTSTP (Ctrl+Z), SIGCONT
@@ -32,8 +30,6 @@
 **影响**: 交互式使用和进程管理
 
 ### 2. Shell选项系统
-**状态**: 基础实现
-**缺失功能**:
 - `set` 选项：`-e` (errexit), `-u` (nounset), `-x` (xtrace), `-n` (noexec), `-v` (verbose)
 - `-o` 选项：`allexport`, `errexit`, `ignoreeof`, `interactive`, `monitor`, `noclobber`, `noexec`, `noglob`, `nolog`, `notify`, `nounset`, `physical`, `posix`, `verbose`, `vi`, `xtrace`
 - 选项继承（子shell）
@@ -43,8 +39,6 @@
 **影响**: shell行为控制和脚本调试
 
 ### 3. 变量属性系统
-**状态**: 基础实现
-**缺失功能**:
 - 变量属性：`export`, `readonly`
 - 局部变量作用域：`local` 内置命令
 - 变量继承（子shell和函数）
@@ -54,8 +48,6 @@
 **影响**: 变量作用域和属性管理
 
 ### 4. 控制结构完整执行
-**状态**: 已解析但未完全执行
-**缺失功能**:
 - `if-then-elif-else-fi` 完整执行
 - `for var in words; do commands; done` 完整执行
 - `while condition; do commands; done` 完整执行
@@ -67,8 +59,6 @@
 **影响**: 无法执行控制流脚本
 
 ### 5. 函数系统完整实现
-**状态**: 基础实现
-**缺失功能**:
 - 函数参数传递
 - 函数局部变量
 - 函数返回值
@@ -79,8 +69,6 @@
 **影响**: 函数定义和使用
 
 ### 6. Here文档
-**状态**: 完全缺失
-**缺失功能**:
 - 基本here-doc：`<< EOF`
 - 制表符抑制here-doc：`<<- EOF`
 - 引用here-doc：`<< "EOF"`

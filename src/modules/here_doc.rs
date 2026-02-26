@@ -1,7 +1,7 @@
 //! Here-document handling for POSIX Shell
 //! Implements << and <<- redirections
 
-use std::io::{self, Write, Read};
+use std::io::{self, Write, Read, Seek};
 use std::process::Stdio;
 use std::fs::File;
 use tempfile::NamedTempFile;

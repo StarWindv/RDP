@@ -141,7 +141,7 @@ impl ControlExecutor {
         for case in cases {
             for pattern in &case.patterns {
                 if self.pattern_matches(word, pattern) {
-                    return self.execute_commands(&case.body.iter().map(|c| **c).collect::<Vec<_>>());
+                    return self.execute_commands(&case.body.iter().map(|c| c.clone()).collect::<Vec<_>>());
                 }
             }
         }

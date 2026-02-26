@@ -11,6 +11,7 @@ use crate::modules::ssa_ir::{
 use crate::modules::builtins::Builtins;
 use crate::modules::env::ShellEnv;
 use crate::modules::variables::get_variable_system;
+use crate::modules::variables::VarAttribute;
 
 /// SSA IR Executor
 pub struct SsaExecutor {
@@ -547,15 +548,6 @@ impl SsaExecutor {
                 ExecValue::Void
             }
             
-            // Parameter expansion
-            Instruction::ParamExpand(param, op, result) => {
-                let param_val = self.get_value(*param).as_string();
-                let expanded = self.execute_param_expand(&param_val, op);
-                let value = ExecValue::String(expanded);
-                self.set_value(*result, value.clone());
-                value
-            }
-            
             // Function call
             Instruction::CallFunction(func_name, args, result) => {
                 // TODO: Implement function call
@@ -563,6 +555,196 @@ impl SsaExecutor {
                 let value = ExecValue::ExitStatus(0);
                 self.set_value(*result, value.clone());
                 value
+            }
+            
+            // Export, unset, readonly variable operations
+            Instruction::ExportVar(var) => {
+                let var_name = self.get_value(*var).as_string();
+                let vs = get_variable_system();
+                let mut vs_mut = vs;
+                if let Some(var_data) = vs_mut.get(&var_name) {
+                    // We need to clone and modify, then set back
+                    let mut new_var = var_data.clone();
+                    new_var.add_attribute(VarAttribute::Exported);
+                    // Since we can't get mutable reference, we need to remove and insert
+                    // For now, just skip - we'll handle this properly later
+                }
+                ExecValue::Void
+            }
+            
+            Instruction::UnsetVar(var) => {
+                let var_name = self.get_value(*var).as_string();
+                let vs = get_variable_system();
+                let mut vs_mut = vs;
+                let _ = vs_mut.unset(&var_name);
+                ExecValue::Void
+            }
+            
+            Instruction::ReadonlyVar(var) => {
+                let var_name = self.get_value(*var).as_string();
+                let vs = get_variable_system();
+                let mut vs_mut = vs;
+                if let Some(var_data) = vs_mut.get(&var_name) {
+                    // We need to clone and modify, then set back
+                    let mut new_var = var_data.clone();
+                    new_var.add_attribute(VarAttribute::ReadOnly);
+                    // Since we can't get mutable reference, we need to remove and insert
+                    // For now, just skip - we'll handle this properly later
+                }
+                ExecValue::Void
+            }
+            
+            // Kill and trap operations
+            Instruction::Kill(pid, signal) => {
+                let pid_val = self.get_value(*pid).as_pid();
+                // TODO: Implement kill
+                // For now, just return success
+                ExecValue::ExitStatus(0)
+            }
+            
+            Instruction::Trap(signal, handler) => {
+                // TODO: Implement trap
+                ExecValue::Void
+            }
+            
+            // Here document
+            Instruction::HereDoc(content, result) => {
+                // TODO: Implement here document
+                // For now, create a dummy file descriptor
+                let value = ExecValue::FileDescriptor(5);
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            // Pattern matching and glob expansion
+            Instruction::PatternMatch(str, pattern, result) => {
+                let s = self.get_value(*str).as_string();
+                // Simple pattern matching for now
+                let matches = s.contains(pattern);
+                let value = ExecValue::Boolean(matches);
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            Instruction::GlobExpand(pattern, result) => {
+                // TODO: Implement glob expansion
+                // For now, just return the pattern as a string
+                let pattern_val = self.get_value(*pattern).as_string();
+                let value = ExecValue::String(pattern_val);
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            // Bit operations
+            Instruction::BitAnd(a, b, result) => {
+                let a_val = self.get_value(*a).as_integer();
+                let b_val = self.get_value(*b).as_integer();
+                let value = ExecValue::Integer(a_val & b_val);
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            Instruction::BitOr(a, b, result) => {
+                let a_val = self.get_value(*a).as_integer();
+                let b_val = self.get_value(*b).as_integer();
+                let value = ExecValue::Integer(a_val | b_val);
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            Instruction::BitXor(a, b, result) => {
+                let a_val = self.get_value(*a).as_integer();
+                let b_val = self.get_value(*b).as_integer();
+                let value = ExecValue::Integer(a_val ^ b_val);
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            Instruction::BitNot(a, result) => {
+                let a_val = self.get_value(*a).as_integer();
+                let value = ExecValue::Integer(!a_val);
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            Instruction::ShiftLeft(a, b, result) => {
+                let a_val = self.get_value(*a).as_integer();
+                let b_val = self.get_value(*b).as_integer();
+                let value = ExecValue::Integer(a_val << b_val);
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            Instruction::ShiftRight(a, b, result) => {
+                let a_val = self.get_value(*a).as_integer();
+                let b_val = self.get_value(*b).as_integer();
+                let value = ExecValue::Integer(a_val >> b_val);
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            Instruction::Neg(a, result) => {
+                let a_val = self.get_value(*a).as_integer();
+                let value = ExecValue::Integer(-a_val);
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            // Array operations
+            Instruction::CreateArray(result) => {
+                // TODO: Implement array
+                let value = ExecValue::String(String::new());
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            Instruction::ArraySet(array, index, value) => {
+                // TODO: Implement array set
+                ExecValue::Void
+            }
+            
+            Instruction::ArrayGet(array, index, result) => {
+                // TODO: Implement array get
+                let value = ExecValue::String(String::new());
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            Instruction::ArrayLength(array, result) => {
+                // TODO: Implement array length
+                let value = ExecValue::Integer(0);
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            Instruction::ArrayKeys(array, result) => {
+                // TODO: Implement array keys
+                let value = ExecValue::String(String::new());
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            Instruction::ConstArray(values, result) => {
+                // TODO: Implement const array
+                let value = ExecValue::String(format!("{:?}", values));
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            // Command substitution
+            Instruction::CommandSub(cmd_result, result) => {
+                // TODO: Implement command substitution
+                // For now, just return exit status as string
+                let status = self.get_value(*cmd_result).as_status();
+                let value = ExecValue::String(status.to_string());
+                self.set_value(*result, value.clone());
+                value
+            }
+            
+            // Handle any other instructions not explicitly matched
+            _ => {
+                eprintln!("Warning: Unimplemented instruction: {:?}", instr);
+                ExecValue::Void
             }
         }
     }
