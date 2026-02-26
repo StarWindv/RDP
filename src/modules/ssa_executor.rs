@@ -234,7 +234,9 @@ impl SsaExecutor {
             // Control flow (handled in execute_block)
             Instruction::Jump(_) |
             Instruction::Branch(_, _, _) |
-            Instruction::Return(_) => ExecValue::Void,
+            Instruction::Return(_) |
+            Instruction::Break(_) |
+            Instruction::Continue(_) => ExecValue::Void,
             
             // Variable operations
             Instruction::AllocVar(_name, result) => {
