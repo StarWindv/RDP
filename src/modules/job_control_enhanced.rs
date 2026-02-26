@@ -16,6 +16,9 @@ use nix::{
     errno::Errno,
 };
 
+#[cfg(unix)]
+use libc;
+
 /// Job status
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JobStatus {
@@ -96,29 +99,26 @@ impl EnhancedJobControl {
     /// Give terminal to a process group
     #[cfg(unix)]
     fn give_terminal_to(&self, pgid: i32) -> Result<(), String> {
-        use nix::{
-            fcntl,
-            term::tcsetpgrp,
-        };
-        
-        // Set the process group as foreground process group
-        let fd = 0; // Standard input file descriptor
-        match tcsetpgrp(fd, Pid::from_raw(pgid)) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("Failed to set foreground process group: {}", e)),
+        // Use libc directly for tcsetpgrp
+        unsafe {
+            if libc::tcsetpgrp(0, pgid) == 0 {
+                Ok(())
+            } else {
+                Err(format!("Failed to set foreground process group: {}", std::io::Error::last_os_error()))
+            }
         }
     }
     
     /// Take back terminal control
     #[cfg(unix)]
     fn take_terminal_back(&self) -> Result<(), String> {
-        use nix::term::tcsetpgrp;
-        
-        // Set shell's process group as foreground
-        let fd = 0; // Standard input file descriptor
-        match tcsetpgrp(fd, Pid::from_raw(self.shell_pgid)) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("Failed to take back terminal: {}", e)),
+        // Use libc directly for tcsetpgrp
+        unsafe {
+            if libc::tcsetpgrp(0, self.shell_pgid) == 0 {
+                Ok(())
+            } else {
+                Err(format!("Failed to take back terminal: {}", std::io::Error::last_os_error()))
+            }
         }
     }
     
@@ -467,8 +467,10 @@ pub fn init_enhanced_job_control() -> Result<(), String> {
         
         // Take control of terminal
         let fd = 0; // Standard input
-        if let Err(e) = nix::term::tcsetpgrp(fd, shell_pid) {
-            return Err(format!("Failed to take terminal control: {}", e));
+        unsafe {
+            if libc::tcsetpgrp(fd, shell_pid.as_raw()) != 0 {
+                return Err(format!("Failed to take terminal control: {}", std::io::Error::last_os_error()));
+            }
         }
     }
     
@@ -551,15 +553,35 @@ pub fn execute_with_job_control(
                 
                 // If this is a foreground job, take control of terminal
                 if foreground {
-                    if let Err(e) = nix::term::tcsetpgrp(0, child_pid) {
-                        eprintln!("Failed to take terminal: {}", e);
+                    unsafe {
+                        if libc::tcsetpgrp(0, child_pid.as_raw()) != 0 {
+                            eprintln!("Failed to take terminal: {}", std::io::Error::last_os_error());
+                        }
                     }
                 }
                 
                 // Execute command
-                let error = cmd.exec();
-                eprintln!("Failed to execute {}: {}", command, error);
-                std::process::exit(1);
+                #[cfg(unix)]
+                {
+                    use std::os::unix::process::CommandExt;
+                    let error = cmd.exec();
+                    eprintln!("Failed to execute {}: {}", command, error);
+                    std::process::exit(1);
+                }
+                #[cfg(not(unix))]
+                {
+                    // On non-Unix systems, use spawn
+                    match cmd.spawn() {
+                        Ok(mut child) => {
+                            let _ = child.wait();
+                            std::process::exit(child.wait().ok().and_then(|s| s.code()).unwrap_or(1));
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to execute {}: {}", command, e);
+                            std::process::exit(1);
+                        }
+                    }
+                }
             }
             Err(e) => Err(format!("Failed to fork: {}", e)),
         }

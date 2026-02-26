@@ -61,7 +61,7 @@ impl HereDocProcessor {
     }
     
     /// Read here-document from input
-    pub fn read_here_doc(&self, _delimiter: &str, strip_tabs: bool) -> Result<String, String> {
+    pub fn read_here_doc(&self, delimiter: &str, strip_tabs: bool) -> Result<String, String> {
         let mut content = String::new();
         
         println!("Reading here-document (delimiter: {}, strip tabs: {})", delimiter, strip_tabs);
