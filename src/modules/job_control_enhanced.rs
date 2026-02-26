@@ -209,16 +209,20 @@ impl EnhancedJobControl {
     
     /// Bring job to foreground
     pub fn foreground_job(&mut self, job_id: usize) -> Result<(), String> {
+        // First check if job exists and get its pgid
+        let pgid = if let Some(job) = self.jobs.get(&job_id) {
+            job.pgid
+        } else {
+            return Err(format!("Job {} not found", job_id));
+        };
+        
+        // Update job status
         if let Some(job) = self.jobs.get_mut(&job_id) {
             job.foreground = true;
             self.current_foreground_job = Some(job_id);
             
-            // Give terminal to the job's process group
-            #[cfg(unix)]
-            self.give_terminal_to(job.pgid)?;
-            
             // If job is stopped, send SIGCONT to continue it
-            if let JobStatus::Stopped(signal) = job.status {
+            if let JobStatus::Stopped(_signal) = job.status {
                 #[cfg(unix)]
                 {
                     if let Err(e) = signal::killpg(Pid::from_raw(job.pgid), Signal::SIGCONT) {
@@ -227,11 +231,13 @@ impl EnhancedJobControl {
                 }
                 job.status = JobStatus::Running;
             }
-            
-            Ok(())
-        } else {
-            Err(format!("Job {} not found", job_id))
         }
+        
+        // Give terminal to the job's process group
+        #[cfg(unix)]
+        self.give_terminal_to(pgid)?;
+        
+        Ok(())
     }
     
     /// Send job to background
@@ -241,13 +247,10 @@ impl EnhancedJobControl {
             
             if self.current_foreground_job == Some(job_id) {
                 self.current_foreground_job = None;
-                // Take back terminal control
-                #[cfg(unix)]
-                self.take_terminal_back()?;
             }
             
             // If job is stopped, send SIGCONT to continue it in background
-            if let JobStatus::Stopped(signal) = job.status {
+            if let JobStatus::Stopped(_signal) = job.status {
                 #[cfg(unix)]
                 {
                     if let Err(e) = signal::killpg(Pid::from_raw(job.pgid), Signal::SIGCONT) {
@@ -256,11 +259,17 @@ impl EnhancedJobControl {
                 }
                 job.status = JobStatus::Running;
             }
-            
-            Ok(())
         } else {
-            Err(format!("Job {} not found", job_id))
+            return Err(format!("Job {} not found", job_id));
         }
+        
+        // Take back terminal control if this was the foreground job
+        if self.current_foreground_job.is_none() {
+            #[cfg(unix)]
+            self.take_terminal_back()?;
+        }
+        
+        Ok(())
     }
     
     /// Send signal to job
@@ -281,38 +290,46 @@ impl EnhancedJobControl {
     
     /// Wait for job to complete
     pub fn wait_for_job(&mut self, job_id: usize) -> Result<i32, String> {
+        // First get the job to work on
+        let mut last_status = 0;
+        let mut should_update = false;
+        
         if let Some(job) = self.jobs.get_mut(&job_id) {
-            let mut last_status = 0;
-            
             // Wait for all child processes in the job
             for child in &mut job.children {
                 match child.wait() {
                     Ok(status) => {
                         last_status = status.code().unwrap_or(128);
-                        self.update_job_status_from_wait(job_id, last_status)?;
+                        should_update = true;
                     }
                     Err(e) => {
                         return Err(format!("Failed to wait for process: {}", e));
                     }
                 }
             }
-            
-            Ok(last_status)
         } else {
-            Err(format!("Job {} not found", job_id))
+            return Err(format!("Job {} not found", job_id));
         }
+        
+        // Now update the job status
+        if should_update {
+            self.update_job_status_from_wait(job_id, last_status)?;
+        }
+        
+        Ok(last_status)
     }
     
     /// Wait for any job to change status
     pub fn wait_for_any_job(&mut self) -> Result<Option<(usize, i32)>, String> {
-        // Check all jobs for status changes
+        // Collect jobs that have status changes
+        let mut changed_jobs = Vec::new();
+        
         for (job_id, job) in &mut self.jobs {
             for child in &mut job.children {
                 match child.try_wait() {
                     Ok(Some(status)) => {
                         let exit_status = status.code().unwrap_or(128);
-                        self.update_job_status_from_wait(*job_id, exit_status)?;
-                        return Ok(Some((*job_id, exit_status)));
+                        changed_jobs.push((*job_id, exit_status));
                     }
                     Ok(None) => {
                         // Child still running
@@ -324,7 +341,13 @@ impl EnhancedJobControl {
             }
         }
         
-        Ok(None)
+        // Update job statuses
+        for (job_id, exit_status) in &changed_jobs {
+            self.update_job_status_from_wait(*job_id, *exit_status)?;
+        }
+        
+        // Return first changed job if any
+        changed_jobs.first().cloned()
     }
     
     /// Clean up finished jobs
@@ -376,7 +399,7 @@ impl EnhancedJobControl {
         for job in self.jobs.values_mut() {
             if !job.notified {
                 let notification = match job.status {
-                    JobStatus::Terminated(status) => {
+                    JobStatus::Terminated(_status) => {
                         format!("[{}] Done    {}", job.id, job.command)
                     }
                     JobStatus::Signaled(signal) => {
