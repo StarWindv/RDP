@@ -501,89 +501,91 @@ pub fn execute_with_job_control(
         use nix::unistd::{fork, ForkResult, setpgid};
         use nix::sys::signal::Signal;
         
-        match fork() {
-            Ok(ForkResult::Parent { child, .. }) => {
-                // Parent process
-                let child_pid = child.as_raw();
-                
-                // Set child's process group
-                // If this is the first process in a pipeline, it becomes the process group leader
-                if let Err(e) = setpgid(child, child) {
-                    return Err(format!("Failed to set child process group: {}", e));
+        unsafe {
+            match fork() {
+                Ok(ForkResult::Parent { child, .. }) => {
+                    // Parent process
+                    let child_pid = child.as_raw();
+                    
+                    // Set child's process group
+                    // If this is the first process in a pipeline, it becomes the process group leader
+                    if let Err(e) = setpgid(child, child) {
+                        return Err(format!("Failed to set child process group: {}", e));
+                    }
+                    
+                    let job_control = get_enhanced_job_control();
+                    let mut jc = job_control.lock().unwrap();
+                    
+                    // TODO: Actually get the child process
+                    // For now, create a dummy child
+                    let dummy_child = Command::new("true").spawn().map_err(|e| e.to_string())?;
+                    
+                    let job_id = jc.add_job(child_pid, format!("{} {}", command, args.join(" ")), foreground, dummy_child);
+                    
+                    if foreground {
+                        // Give terminal to the new process group
+                        jc.give_terminal_to(child_pid)?;
+                    }
+                    
+                    Ok(job_id)
                 }
-                
-                let job_control = get_enhanced_job_control();
-                let mut jc = job_control.lock().unwrap();
-                
-                // TODO: Actually get the child process
-                // For now, create a dummy child
-                let dummy_child = Command::new("true").spawn().map_err(|e| e.to_string())?;
-                
-                let job_id = jc.add_job(child_pid, format!("{} {}", command, args.join(" ")), foreground, dummy_child);
-                
-                if foreground {
-                    // Give terminal to the new process group
-                    jc.give_terminal_to(child_pid)?;
-                }
-                
-                Ok(job_id)
-            }
-            Ok(ForkResult::Child) => {
-                // Child process
-                // Reset signal handlers
-                let signals = [
-                    Signal::SIGINT,
-                    Signal::SIGQUIT,
-                    Signal::SIGTSTP,
-                    Signal::SIGTTIN,
-                    Signal::SIGTTOU,
-                    Signal::SIGCHLD,
-                ];
-                
-                for sig in &signals {
-                    let _ = signal::signal(*sig, signal::SigHandler::SigDfl);
-                }
-                
-                // Set process group
-                let child_pid = unistd::getpid();
-                if let Err(e) = setpgid(child_pid, child_pid) {
-                    eprintln!("Failed to set process group: {}", e);
-                    std::process::exit(1);
-                }
-                
-                // If this is a foreground job, take control of terminal
-                if foreground {
+                Ok(ForkResult::Child) => {
+                    // Child process
+                    // Reset signal handlers
+                    let signals = [
+                        Signal::SIGINT,
+                        Signal::SIGQUIT,
+                        Signal::SIGTSTP,
+                        Signal::SIGTTIN,
+                        Signal::SIGTTOU,
+                        Signal::SIGCHLD,
+                    ];
+                    
                     unsafe {
+                        for sig in &signals {
+                            let _ = signal::signal(*sig, signal::SigHandler::SigDfl);
+                        }
+                    }
+                    
+                    // Set process group
+                    let child_pid = unistd::getpid();
+                    if let Err(e) = setpgid(child_pid, child_pid) {
+                        eprintln!("Failed to set process group: {}", e);
+                        std::process::exit(1);
+                    }
+                    
+                    // If this is a foreground job, take control of terminal
+                    if foreground {
                         if libc::tcsetpgrp(0, child_pid.as_raw()) != 0 {
                             eprintln!("Failed to take terminal: {}", std::io::Error::last_os_error());
                         }
                     }
-                }
-                
-                // Execute command
-                #[cfg(unix)]
-                {
-                    use std::os::unix::process::CommandExt;
-                    let error = cmd.exec();
-                    eprintln!("Failed to execute {}: {}", command, error);
-                    std::process::exit(1);
-                }
-                #[cfg(not(unix))]
-                {
-                    // On non-Unix systems, use spawn
-                    match cmd.spawn() {
-                        Ok(mut child) => {
-                            let _ = child.wait();
-                            std::process::exit(child.wait().ok().and_then(|s| s.code()).unwrap_or(1));
-                        }
-                        Err(e) => {
-                            eprintln!("Failed to execute {}: {}", command, e);
-                            std::process::exit(1);
+                    
+                    // Execute command
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::process::CommandExt;
+                        let error = cmd.exec();
+                        eprintln!("Failed to execute {}: {}", command, error);
+                        std::process::exit(1);
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        // On non-Unix systems, use spawn
+                        match cmd.spawn() {
+                            Ok(mut child) => {
+                                let _ = child.wait();
+                                std::process::exit(child.wait().ok().and_then(|s| s.code()).unwrap_or(1));
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to execute {}: {}", command, e);
+                                std::process::exit(1);
+                            }
                         }
                     }
                 }
+                Err(e) => Err(format!("Failed to fork: {}", e)),
             }
-            Err(e) => Err(format!("Failed to fork: {}", e)),
         }
     }
     

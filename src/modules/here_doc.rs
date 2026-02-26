@@ -3,7 +3,6 @@
 
 use std::io::{self, Write, Read, Seek};
 use std::process::Stdio;
-use std::fs::File;
 use tempfile::NamedTempFile;
 
 /// Here-document processor
