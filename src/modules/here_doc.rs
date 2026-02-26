@@ -1,7 +1,7 @@
 //! Here-document handling for POSIX Shell
 //! Implements << and <<- redirections
 
-use std::io::{self, Write, Read, Seek};
+use std::io::{self, Write, Seek};
 use std::process::Stdio;
 use tempfile::NamedTempFile;
 
@@ -33,7 +33,7 @@ impl HereDocProcessor {
             .map_err(|e| format!("Failed to write here-document: {}", e))?;
         
         // Seek to beginning
-        temp_file.as_file_mut().seek(io::SeekFrom::Start(0))
+        temp_file.as_file_mut().seek(std::io::SeekFrom::Start(0))
             .map_err(|e| format!("Failed to seek temporary file: {}", e))?;
         
         // Convert to Stdio
@@ -68,7 +68,7 @@ impl HereDocProcessor {
         
         loop {
             let mut line = String::new();
-            io::stdin().read_line(&mut line)
+            std::io::stdin().read_line(&mut line)
                 .map_err(|e| format!("Failed to read here-document line: {}", e))?;
             
             // Check for delimiter

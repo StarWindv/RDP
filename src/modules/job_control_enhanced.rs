@@ -347,7 +347,7 @@ impl EnhancedJobControl {
         }
         
         // Return first changed job if any
-        changed_jobs.first().cloned()
+        Ok(changed_jobs.first().map(|&(id, status)| (id, status)))
     }
     
     /// Clean up finished jobs
