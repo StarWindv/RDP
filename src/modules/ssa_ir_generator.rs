@@ -314,7 +314,7 @@ impl SsaIrGenerator {
         // Create pipes for connecting commands
         // For N commands, we need N-1 pipes
         let mut pipes = Vec::new();
-        for i in 0..commands.len() - 1 {
+        for _i in 0..commands.len() - 1 {
             let read_fd = self.create_value(ValueType::FileDescriptor);
             let write_fd = self.create_value(ValueType::FileDescriptor);
             self.add_instruction(Instruction::CreatePipe(read_fd, write_fd));
@@ -686,7 +686,7 @@ impl SsaIrGenerator {
             
             // Body block: execute case commands
             self.set_current_block(body_block);
-            let body_result = self.generate_compound_command(
+            let _body_result = self.generate_compound_command(
                 case.body.iter().map(|c| c.clone()).collect()
             );
             
@@ -857,7 +857,7 @@ impl SsaIrGenerator {
         
         // Body block: execute commands with selected variable
         self.set_current_block(loop_body);
-        let body_result = self.generate_compound_command(body.clone());
+        let _body_result = self.generate_compound_command(body.clone());
         
         // Check if we should continue (placeholder - in real select, user can break)
         let continue_val = self.create_value(ValueType::Boolean);
@@ -877,7 +877,7 @@ impl SsaIrGenerator {
         result
     }
     
-    fn generate_function_definition(&mut self, name: &str, body: Vec<Box<AstNode>>) -> ValueId {
+    fn generate_function_definition(&mut self, name: &str, _body: Vec<Box<AstNode>>) -> ValueId {
         // Function definition: name() { body; }
         // In SSA IR, we create a new function
         
@@ -977,7 +977,7 @@ impl SsaIrGenerator {
         result
     }
     
-    fn generate_command_substitution(&mut self, command: AstNode, backticks: bool) -> ValueId {
+    fn generate_command_substitution(&mut self, command: AstNode, _backticks: bool) -> ValueId {
         // Command substitution needs to capture output of a command
         // We'll create a pipe, execute the command with output redirected to the pipe,
         // then read from the pipe

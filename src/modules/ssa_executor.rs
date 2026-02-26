@@ -549,7 +549,7 @@ impl SsaExecutor {
             }
             
             // Function call
-            Instruction::CallFunction(func_name, args, result) => {
+            Instruction::CallFunction(_func_name, _args, result) => {
                 // TODO: Implement function call
                 // For now, just return success
                 let value = ExecValue::ExitStatus(0);
@@ -595,20 +595,20 @@ impl SsaExecutor {
             }
             
             // Kill and trap operations
-            Instruction::Kill(pid, signal) => {
-                let pid_val = self.get_value(*pid).as_pid();
+            Instruction::Kill(pid, _signal) => {
+                let _pid_val = self.get_value(*pid).as_pid();
                 // TODO: Implement kill
                 // For now, just return success
                 ExecValue::ExitStatus(0)
             }
             
-            Instruction::Trap(signal, handler) => {
+            Instruction::Trap(_signal, _handler) => {
                 // TODO: Implement trap
                 ExecValue::Void
             }
             
             // Here document
-            Instruction::HereDoc(content, result) => {
+            Instruction::HereDoc(_content, result) => {
                 // TODO: Implement here document
                 // For now, create a dummy file descriptor
                 let value = ExecValue::FileDescriptor(5);
@@ -698,12 +698,12 @@ impl SsaExecutor {
                 value
             }
             
-            Instruction::ArraySet(array, index, value) => {
+            Instruction::ArraySet(_array, _index, _value) => {
                 // TODO: Implement array set
                 ExecValue::Void
             }
             
-            Instruction::ArrayGet(array, index, result) => {
+            Instruction::ArrayGet(_array, _index, result) => {
                 // TODO: Implement array get
                 let value = ExecValue::String(String::new());
                 self.set_value(*result, value.clone());
