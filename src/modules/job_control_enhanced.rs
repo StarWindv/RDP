@@ -2,10 +2,9 @@
 //! Implements full job control with process groups, signals, and terminal control
 
 use std::collections::HashMap;
-use std::io;
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, Duration};
+use std::time::SystemTime;
 
 use crate::modules::env::ShellEnv;
 
@@ -13,11 +12,8 @@ use crate::modules::env::ShellEnv;
 use nix::{
     sys::signal::{self, Signal},
     unistd::{self, Pid},
-    errno::Errno,
+    sys::termios,
 };
-
-#[cfg(unix)]
-use libc;
 
 /// Job status
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,26 +95,24 @@ impl EnhancedJobControl {
     /// Give terminal to a process group
     #[cfg(unix)]
     fn give_terminal_to(&self, pgid: i32) -> Result<(), String> {
-        // Use libc directly for tcsetpgrp
-        unsafe {
-            if libc::tcsetpgrp(0, pgid) == 0 {
-                Ok(())
-            } else {
-                Err(format!("Failed to set foreground process group: {}", std::io::Error::last_os_error()))
-            }
+        // Use nix's terminal control API
+        use nix::unistd::Pid;
+        if let Err(e) = nix::sys::termios::tcsetpgrp(0, Pid::from_raw(pgid)) {
+            Err(format!("Failed to set foreground process group: {}", e))
+        } else {
+            Ok(())
         }
     }
     
     /// Take back terminal control
     #[cfg(unix)]
     fn take_terminal_back(&self) -> Result<(), String> {
-        // Use libc directly for tcsetpgrp
-        unsafe {
-            if libc::tcsetpgrp(0, self.shell_pgid) == 0 {
-                Ok(())
-            } else {
-                Err(format!("Failed to take back terminal: {}", std::io::Error::last_os_error()))
-            }
+        // Use nix's terminal control API
+        use nix::unistd::Pid;
+        if let Err(e) = nix::sys::termios::tcsetpgrp(0, Pid::from_raw(self.shell_pgid)) {
+            Err(format!("Failed to take back terminal: {}", e))
+        } else {
+            Ok(())
         }
     }
     
@@ -367,7 +361,7 @@ impl EnhancedJobControl {
     /// Format job for display
     pub fn format_job(&self, job: &Job) -> String {
         let status_symbol = match job.status {
-            JobStatus::Running => "+",
+            JobStatus::Running => String::from("+"),
             JobStatus::Stopped(sig) => {
                 let sig_name = match sig {
                     #[cfg(unix)]
@@ -467,10 +461,8 @@ pub fn init_enhanced_job_control() -> Result<(), String> {
         
         // Take control of terminal
         let fd = 0; // Standard input
-        unsafe {
-            if libc::tcsetpgrp(fd, shell_pid.as_raw()) != 0 {
-                return Err(format!("Failed to take terminal control: {}", std::io::Error::last_os_error()));
-            }
+        if let Err(e) = nix::sys::termios::tcsetpgrp(fd, shell_pid) {
+            return Err(format!("Failed to take terminal control: {}", e));
         }
     }
     
@@ -556,8 +548,8 @@ pub fn execute_with_job_control(
                     
                     // If this is a foreground job, take control of terminal
                     if foreground {
-                        if libc::tcsetpgrp(0, child_pid.as_raw()) != 0 {
-                            eprintln!("Failed to take terminal: {}", std::io::Error::last_os_error());
+                        if let Err(e) = nix::sys::termios::tcsetpgrp(0, child_pid) {
+                            eprintln!("Failed to take terminal: {}", e);
                         }
                     }
                     
