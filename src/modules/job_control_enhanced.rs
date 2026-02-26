@@ -12,7 +12,6 @@ use crate::modules::env::ShellEnv;
 use nix::{
     sys::signal::{self, Signal},
     unistd::{self, Pid},
-    sys::termios,
 };
 
 /// Job status
@@ -97,7 +96,7 @@ impl EnhancedJobControl {
     fn give_terminal_to(&self, pgid: i32) -> Result<(), String> {
         // Use nix's terminal control API
         use nix::unistd::Pid;
-        if let Err(e) = nix::sys::termios::tcsetpgrp(0, Pid::from_raw(pgid)) {
+        if let Err(e) = nix::unistd::tcsetpgrp(0, Pid::from_raw(pgid)) {
             Err(format!("Failed to set foreground process group: {}", e))
         } else {
             Ok(())
@@ -109,7 +108,7 @@ impl EnhancedJobControl {
     fn take_terminal_back(&self) -> Result<(), String> {
         // Use nix's terminal control API
         use nix::unistd::Pid;
-        if let Err(e) = nix::sys::termios::tcsetpgrp(0, Pid::from_raw(self.shell_pgid)) {
+        if let Err(e) = nix::unistd::tcsetpgrp(0, Pid::from_raw(self.shell_pgid)) {
             Err(format!("Failed to take back terminal: {}", e))
         } else {
             Ok(())
@@ -461,7 +460,7 @@ pub fn init_enhanced_job_control() -> Result<(), String> {
         
         // Take control of terminal
         let fd = 0; // Standard input
-        if let Err(e) = nix::sys::termios::tcsetpgrp(fd, shell_pid) {
+        if let Err(e) = nix::unistd::tcsetpgrp(fd, shell_pid) {
             return Err(format!("Failed to take terminal control: {}", e));
         }
     }
@@ -555,7 +554,7 @@ pub fn execute_with_job_control(
                     
                     // If this is a foreground job, take control of terminal
                     if foreground {
-                        if let Err(e) = nix::sys::termios::tcsetpgrp(0, child_pid) {
+                        if let Err(e) = nix::unistd::tcsetpgrp(0, child_pid) {
                             eprintln!("Failed to take terminal: {}", e);
                         }
                     }
