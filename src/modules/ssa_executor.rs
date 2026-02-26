@@ -126,8 +126,6 @@ impl SsaExecutor {
     
     /// Execute a function
     pub fn execute_function(&mut self, func: &Function) -> i32 {
-        println!("DEBUG: Starting execution of function: {}", func.name);
-        
         // Store function
         self.functions.insert(func.name.clone(), func.clone());
         
@@ -140,8 +138,6 @@ impl SsaExecutor {
         
         // Execute
         let result = self.execute_block(func.entry_block, func);
-        
-        println!("DEBUG: Execution completed with status: {}", result.as_status());
         
         // Clean up
         self.current_function = None;

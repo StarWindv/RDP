@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use crate::modules::ast::AstNode;
 use crate::modules::env::ShellEnv;
-use crate::modules::variables::{get_variable_system, VariableSystem};
+use crate::modules::variables::get_variable_system;
 use crate::modules::builtins::Builtins;
 
 /// Shell function definition

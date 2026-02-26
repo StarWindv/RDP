@@ -1,7 +1,7 @@
 //! export builtin command - set export attribute for variables
 
 use crate::modules::env::ShellEnv;
-use crate::modules::variables::{get_variable_system, VariableScope};
+use crate::modules::variables::get_variable_system;
 
 use crate::modules::builtins::registry::BuiltinCommand;
 
