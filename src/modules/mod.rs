@@ -28,6 +28,7 @@ pub mod param_expand;
 pub mod subshell;
 pub mod process_substitution;
 pub mod job_control;
+pub mod job_control_enhanced;
 pub mod options;
 pub mod variables;
 pub mod here_doc;
