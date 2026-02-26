@@ -6,14 +6,19 @@ use std::io;
 use std::process::Stdio;
 
 use crate::modules::ast::RedirectType;
+use crate::modules::here_doc::HereDocProcessor;
 
 /// Redirection handler for POSIX Shell
-pub struct RedirectionHandler;
+pub struct RedirectionHandler {
+    here_doc_processor: HereDocProcessor,
+}
 
 impl RedirectionHandler {
     /// Create a new redirection handler
     pub fn new() -> Self {
-        Self
+        Self {
+            here_doc_processor: HereDocProcessor::new(),
+        }
     }
     
     /// Apply a redirection to a file descriptor
@@ -71,23 +76,31 @@ impl RedirectionHandler {
     }
     
     /// Redirect here-document: << delimiter
-    fn redirect_here_doc(&self, _delimiter: &str, fd: i32) -> Result<RedirectionResult, String> {
-        // TODO: Implement here-document redirection
-        // For now, just return a placeholder
+    fn redirect_here_doc(&self, delimiter: &str, fd: i32) -> Result<RedirectionResult, String> {
+        // Read here-document from stdin
+        let content = self.here_doc_processor.read_here_doc(delimiter, false)?;
+        
+        // Create here-document file
+        let stdio = self.here_doc_processor.create_here_doc(&content, false)?;
+        
         Ok(RedirectionResult {
             fd,
-            stdio: Stdio::null(),
+            stdio,
             close_original: true,
         })
     }
     
     /// Redirect here-document with tab stripping: <<- delimiter
-    fn redirect_here_doc_strip(&self, _delimiter: &str, fd: i32) -> Result<RedirectionResult, String> {
-        // TODO: Implement here-document with tab stripping
-        // For now, just return a placeholder
+    fn redirect_here_doc_strip(&self, delimiter: &str, fd: i32) -> Result<RedirectionResult, String> {
+        // Read here-document from stdin with tab stripping
+        let content = self.here_doc_processor.read_here_doc(delimiter, true)?;
+        
+        // Create here-document file with tab stripping
+        let stdio = self.here_doc_processor.create_here_doc(&content, true)?;
+        
         Ok(RedirectionResult {
             fd,
-            stdio: Stdio::null(),
+            stdio,
             close_original: true,
         })
     }

@@ -30,6 +30,7 @@ pub mod process_substitution;
 pub mod job_control;
 pub mod options;
 pub mod variables;
+pub mod here_doc;
 
 // Re-export commonly used types
 pub use tokens::{Token, TokenType};
