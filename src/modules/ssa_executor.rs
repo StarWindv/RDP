@@ -1,12 +1,13 @@
-//! SSA IR Executor
-//! 
-//! Executes SSA IR programs with proper shell semantics.
-//! This module implements a virtual machine that executes SSA IR instructions,
-//! handling process management, I/O redirection, variable expansion, and more.
+/// SSA IR Executor - executes SSA IR programs with proper shell semantics.
+/// This module implements a virtual machine that executes SSA IR instructions,
+/// handling process management, I/O redirection, variable expansion, and more.
 
 use std::collections::HashMap;
-use std::process::Command;
+use std::process::{Command, Child, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
+
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 
 use crate::modules::ssa_ir::{
     Function, BasicBlockId, ValueId, ValueType,
@@ -16,6 +17,7 @@ use crate::modules::builtins::Builtins;
 use crate::modules::env::ShellEnv;
 use crate::modules::variables::{get_variable_system, VarAttribute};
 use crate::modules::options::errexit_enabled;
+use crate::modules::job_control_enhanced::{get_enhanced_job_control, ShellSignal};
 
 /// SSA IR Executor - executes SSA IR functions
 pub struct SsaExecutor {
@@ -28,6 +30,8 @@ pub struct SsaExecutor {
     program_counter: usize,
     call_stack: Vec<(String, BasicBlockId, usize)>, // (function, block, pc)
     predecessor_blocks: HashMap<BasicBlockId, BasicBlockId>, // block -> predecessor
+    processes: HashMap<u32, Child>, // Track child processes by PID
+    foreground_job: Option<usize>, // Current foreground job ID
 }
 
 /// Executable value representation
@@ -146,6 +150,8 @@ impl SsaExecutor {
             program_counter: 0,
             call_stack: Vec::new(),
             predecessor_blocks: HashMap::new(),
+            processes: HashMap::new(),
+            foreground_job: None,
         }
     }
     
@@ -343,11 +349,16 @@ impl SsaExecutor {
             
             // Process operations
             Instruction::Fork(result) => {
-                // Simulate fork by returning a dummy PID
-                // In a real implementation, we would create a new process
-                // For simulation purposes, we'll use a simple counter
-                static FORK_COUNTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
-                let pid = FORK_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                // Real fork implementation
+                let pid = match self.fork_process() {
+                    Ok(pid) => pid,
+                    Err(e) => {
+                        eprintln!("fork failed: {}", e);
+                        let value = ExecValue::ProcessId(0); // 0 indicates fork failure
+                        self.set_value(*result, value.clone());
+                        return value;
+                    }
+                };
                 
                 let value = ExecValue::ProcessId(pid);
                 self.set_value(*result, value.clone());
@@ -355,22 +366,36 @@ impl SsaExecutor {
             }
             
             Instruction::Exec(pid, cmd, args) => {
-                // TODO: Implement exec
-                // For now, just execute command
-                let _pid_val = self.get_value(*pid);
-                let cmd_str = cmd.clone();
-                let arg_strings: Vec<String> = args.iter()
-                    .map(|arg| self.get_value(*arg).as_string())
-                    .collect();
-                
-                let status = self.execute_external_command(&cmd_str, &arg_strings);
-                ExecValue::ExitStatus(status)
+                // Execute command in forked process
+                let pid_val = self.get_value(*pid).as_pid();
+                if let Some(pid) = pid_val {
+                    if pid == 0 {
+                        // Child process - execute command
+                        let cmd_str = cmd.clone();
+                        let arg_strings: Vec<String> = args.iter()
+                            .map(|arg| self.get_value(*arg).as_string())
+                            .collect();
+                        
+                        // Execute command
+                        let status = self.execute_external_command_in_child(&cmd_str, &arg_strings);
+                        return ExecValue::ExitStatus(status);
+                    } else {
+                        // Parent process - just return success
+                        return ExecValue::ExitStatus(0);
+                    }
+                }
+                ExecValue::ExitStatus(1)
             }
             
-            Instruction::Wait(_pid, result) => {
-                // TODO: Implement wait
-                // For now, return success
-                let value = ExecValue::ExitStatus(0);
+            Instruction::Wait(pid, result) => {
+                let pid_val = self.get_value(*pid).as_pid();
+                let status = if let Some(pid) = pid_val {
+                    self.wait_for_process(pid)
+                } else {
+                    1 // Error
+                };
+                
+                let value = ExecValue::ExitStatus(status);
                 self.set_value(*result, value.clone());
                 value
             }
@@ -619,11 +644,14 @@ impl SsaExecutor {
             }
             
             // Kill and trap operations
-            Instruction::Kill(pid, _signal) => {
-                let _pid_val = self.get_value(*pid).as_pid();
-                // TODO: Implement kill
-                // For now, just return success
-                ExecValue::ExitStatus(0)
+            Instruction::Kill(pid, signal) => {
+                let pid_val = self.get_value(*pid).as_pid();
+                let status = if let Some(pid) = pid_val {
+                    self.kill_process(pid, *signal)
+                } else {
+                    1 // Error
+                };
+                ExecValue::ExitStatus(status)
             }
             
             Instruction::Trap(_signal, _handler) => {
@@ -1030,14 +1058,165 @@ impl SsaExecutor {
         self.values.insert(id, value);
     }
     
-    /// Get current environment
-    pub fn get_env(&self) -> &ShellEnv {
-        &self.env
+    // ============================================
+    // Process Management Methods
+    // ============================================
+    
+    /// Fork a new process
+    fn fork_process(&mut self) -> Result<u32, String> {
+        #[cfg(unix)]
+        {
+            use nix::unistd::fork;
+            use nix::unistd::ForkResult;
+            
+            unsafe {
+                match fork() {
+                    Ok(ForkResult::Parent { child, .. }) => {
+                        let pid = child.as_raw() as u32;
+                        // Store child process (we'll get it when we wait)
+                        // For now, just store placeholder
+                        self.processes.insert(pid, 
+                            Command::new("true").spawn().map_err(|e| e.to_string())?);
+                        Ok(pid)
+                    }
+                    Ok(ForkResult::Child) => {
+                        // Child process - return 0 to indicate child
+                        Ok(0)
+                    }
+                    Err(e) => Err(format!("fork failed: {}", e)),
+                }
+            }
+        }
+        
+        #[cfg(not(unix))]
+        {
+            // On Windows, we can't fork, so we simulate it
+            // We'll spawn a new process and return its PID
+            let child = Command::new("cmd")
+                .arg("/c")
+                .arg("echo")
+                .arg("fork simulation")
+                .spawn()
+                .map_err(|e| e.to_string())?;
+            
+            let pid = child.id() as u32;
+            self.processes.insert(pid, child);
+            Ok(pid)
+        }
     }
     
-    /// Get mutable environment
-    pub fn get_env_mut(&mut self) -> &mut ShellEnv {
-        &mut self.env
+    /// Execute external command in child process
+    fn execute_external_command_in_child(&self, cmd: &str, args: &[String]) -> i32 {
+        // Find command in PATH
+        let full_path = match self.env.find_in_path(cmd) {
+            Some(path) => path,
+            None => {
+                eprintln!("{}: command not found", cmd);
+                return 127;
+            }
+        };
+        
+        // Prepare command
+        let mut command = Command::new(&full_path);
+        for arg in args {
+            command.arg(arg);
+        }
+        command.current_dir(&self.env.current_dir);
+        
+        // Set environment variables from VariableSystem
+        let vs = get_variable_system();
+        let exported_vars = vs.get_exported_vars();
+        for (key, value) in &exported_vars {
+            command.env(key, value);
+        }
+        
+        // Also set from env (for backward compatibility)
+        for (key, value) in &self.env.vars {
+            command.env(key, value);
+        }
+        
+        #[cfg(unix)]
+        {
+            // Use exec to replace current process
+            use std::os::unix::process::CommandExt;
+            let error = command.exec();
+            eprintln!("exec failed: {}", error);
+            std::process::exit(1);
+        }
+        
+        #[cfg(not(unix))]
+        {
+            // On Windows, we can't exec, so we spawn and exit
+            match command.spawn() {
+                Ok(mut child) => {
+                    match child.wait() {
+                        Ok(status) => status.code().unwrap_or(1),
+                        Err(e) => {
+                            eprintln!("wait failed: {}", e);
+                            1
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("spawn failed: {}", e);
+                    1
+                }
+            }
+        }
+    }
+    
+    /// Wait for a process to complete
+    fn wait_for_process(&mut self, pid: u32) -> i32 {
+        if let Some(mut child) = self.processes.remove(&pid) {
+            match child.wait() {
+                Ok(status) => {
+                    status.code().unwrap_or(128)
+                }
+                Err(e) => {
+                    eprintln!("wait failed: {}", e);
+                    1
+                }
+            }
+        } else {
+            eprintln!("process {} not found", pid);
+            1
+        }
+    }
+    
+    /// Kill a process
+    fn kill_process(&mut self, pid: u32, signal: i32) -> i32 {
+        if let Some(child) = self.processes.get_mut(&pid) {
+            #[cfg(unix)]
+            {
+                use nix::sys::signal::{kill, Signal};
+                use nix::unistd::Pid;
+                
+                let nix_signal = match signal {
+                    2 => Signal::SIGINT,
+                    9 => Signal::SIGKILL,
+                    15 => Signal::SIGTERM,
+                    _ => Signal::SIGTERM,
+                };
+                
+                match kill(Pid::from_raw(pid as i32), nix_signal) {
+                    Ok(_) => 0,
+                    Err(e) => {
+                        eprintln!("kill failed: {}", e);
+                        1
+                    }
+                }
+            }
+            
+            #[cfg(not(unix))]
+            {
+                // On Windows, try to kill the process
+                let _ = child.kill();
+                0
+            }
+        } else {
+            eprintln!("process {} not found", pid);
+            1
+        }
     }
 }
 
