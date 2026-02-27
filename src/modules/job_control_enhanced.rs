@@ -14,13 +14,46 @@ use nix::{
     unistd::{self, Pid},
 };
 
+/// Signal type abstraction for cross-platform compatibility
+#[cfg(unix)]
+pub type ShellSignal = Signal;
+
+#[cfg(not(unix))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShellSignal {
+    SIGSTOP,
+    SIGTSTP,
+    SIGTTIN,
+    SIGTTOU,
+    SIGCONT,
+    SIGINT,
+    SIGTERM,
+    SIGCHLD,
+}
+
+#[cfg(not(unix))]
+impl ShellSignal {
+    pub fn as_raw(&self) -> i32 {
+        match self {
+            ShellSignal::SIGSTOP => 19,
+            ShellSignal::SIGTSTP => 20,
+            ShellSignal::SIGTTIN => 21,
+            ShellSignal::SIGTTOU => 22,
+            ShellSignal::SIGCONT => 18,
+            ShellSignal::SIGINT => 2,
+            ShellSignal::SIGTERM => 15,
+            ShellSignal::SIGCHLD => 17,
+        }
+    }
+}
+
 /// Job status
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JobStatus {
     Running,
-    Stopped(Signal), // Stopped with signal
-    Terminated(i32), // Terminated with exit status
-    Signaled(i32),   // Killed by signal
+    Stopped(ShellSignal), // Stopped with signal
+    Terminated(i32),      // Terminated with exit status
+    Signaled(i32),        // Killed by signal
 }
 
 /// Job information
@@ -143,7 +176,7 @@ impl EnhancedJobControl {
     }
     
     /// Update job status to stopped
-    pub fn update_job_stopped(&mut self, job_id: usize, signal: Signal) -> Result<(), String> {
+    pub fn update_job_stopped(&mut self, job_id: usize, signal: ShellSignal) -> Result<(), String> {
         if let Some(job) = self.jobs.get_mut(&job_id) {
             job.status = JobStatus::Stopped(signal);
             job.notified = false;
@@ -218,7 +251,7 @@ impl EnhancedJobControl {
             if let JobStatus::Stopped(_signal) = job.status {
                 #[cfg(unix)]
                 {
-                    if let Err(e) = signal::killpg(Pid::from_raw(job.pgid), Signal::SIGCONT) {
+                    if let Err(e) = signal::killpg(Pid::from_raw(job.pgid), ShellSignal::SIGCONT) {
                         return Err(format!("Failed to continue job: {}", e));
                     }
                 }
@@ -246,7 +279,7 @@ impl EnhancedJobControl {
             if let JobStatus::Stopped(_signal) = job.status {
                 #[cfg(unix)]
                 {
-                    if let Err(e) = signal::killpg(Pid::from_raw(job.pgid), Signal::SIGCONT) {
+                    if let Err(e) = signal::killpg(Pid::from_raw(job.pgid), ShellSignal::SIGCONT) {
                         return Err(format!("Failed to continue job in background: {}", e));
                     }
                 }
@@ -266,7 +299,7 @@ impl EnhancedJobControl {
     }
     
     /// Send signal to job
-    pub fn signal_job(&mut self, job_id: usize, signal: Signal) -> Result<(), String> {
+    pub fn signal_job(&mut self, job_id: usize, signal: ShellSignal) -> Result<(), String> {
         if let Some(job) = self.jobs.get(&job_id) {
             #[cfg(unix)]
             {
@@ -364,13 +397,21 @@ impl EnhancedJobControl {
             JobStatus::Stopped(sig) => {
                 let sig_name = match sig {
                     #[cfg(unix)]
-                    Signal::SIGSTOP => "Stopped",
+                    ShellSignal::SIGSTOP => "Stopped",
                     #[cfg(unix)]
-                    Signal::SIGTSTP => "Stopped (tty)",
+                    ShellSignal::SIGTSTP => "Stopped (tty)",
                     #[cfg(unix)]
-                    Signal::SIGTTIN => "Stopped (tty in)",
+                    ShellSignal::SIGTTIN => "Stopped (tty in)",
                     #[cfg(unix)]
-                    Signal::SIGTTOU => "Stopped (tty out)",
+                    ShellSignal::SIGTTOU => "Stopped (tty out)",
+                    #[cfg(not(unix))]
+                    ShellSignal::SIGSTOP => "Stopped",
+                    #[cfg(not(unix))]
+                    ShellSignal::SIGTSTP => "Stopped (tty)",
+                    #[cfg(not(unix))]
+                    ShellSignal::SIGTTIN => "Stopped (tty in)",
+                    #[cfg(not(unix))]
+                    ShellSignal::SIGTTOU => "Stopped (tty out)",
                     _ => "Stopped",
                 };
                 format!("S ({})", sig_name)
@@ -401,13 +442,21 @@ impl EnhancedJobControl {
                     JobStatus::Stopped(signal) => {
                         let sig_name = match signal {
                             #[cfg(unix)]
-                            Signal::SIGSTOP => "SIGSTOP",
+                            ShellSignal::SIGSTOP => "SIGSTOP",
                             #[cfg(unix)]
-                            Signal::SIGTSTP => "SIGTSTP",
+                            ShellSignal::SIGTSTP => "SIGTSTP",
                             #[cfg(unix)]
-                            Signal::SIGTTIN => "SIGTTIN",
+                            ShellSignal::SIGTTIN => "SIGTTIN",
                             #[cfg(unix)]
-                            Signal::SIGTTOU => "SIGTTOU",
+                            ShellSignal::SIGTTOU => "SIGTTOU",
+                            #[cfg(not(unix))]
+                            ShellSignal::SIGSTOP => "SIGSTOP",
+                            #[cfg(not(unix))]
+                            ShellSignal::SIGTSTP => "SIGTSTP",
+                            #[cfg(not(unix))]
+                            ShellSignal::SIGTTIN => "SIGTTIN",
+                            #[cfg(not(unix))]
+                            ShellSignal::SIGTTOU => "SIGTTOU",
                             _ => "unknown",
                         };
                         format!("[{}] Stopped by {}    {}", job.id, sig_name, job.command)
@@ -443,10 +492,10 @@ pub fn init_enhanced_job_control() -> Result<(), String> {
         
         // Block job control signals in shell
         let mut mask = SigSet::empty();
-        mask.add(Signal::SIGTTOU);
-        mask.add(Signal::SIGTTIN);
-        mask.add(Signal::SIGTSTP);
-        mask.add(Signal::SIGCHLD);
+        mask.add(ShellSignal::SIGTTOU);
+        mask.add(ShellSignal::SIGTTIN);
+        mask.add(ShellSignal::SIGTSTP);
+        mask.add(ShellSignal::SIGCHLD);
         
         if let Err(e) = sigprocmask(SigmaskHow::SIG_BLOCK, Some(&mask), None) {
             return Err(format!("Failed to block job control signals: {}", e));
@@ -531,15 +580,16 @@ pub fn execute_with_job_control(
                     );
                     
                     let signals = [
-                        Signal::SIGINT,
-                        Signal::SIGQUIT,
-                        Signal::SIGTSTP,
-                        Signal::SIGTTIN,
-                        Signal::SIGTTOU,
-                        Signal::SIGCHLD,
+                        ShellSignal::SIGINT,
+                        ShellSignal::SIGQUIT,
+                        ShellSignal::SIGTSTP,
+                        ShellSignal::SIGTTIN,
+                        ShellSignal::SIGTTOU,
+                        ShellSignal::SIGCHLD,
                     ];
                     
                     for sig in &signals {
+                        #[cfg(unix)]
                         if let Err(e) = nix::sys::signal::sigaction(*sig, &default_action) {
                             eprintln!("Failed to reset signal handler for {:?}: {}", sig, e);
                         }
