@@ -32,6 +32,7 @@ pub struct SsaExecutor {
     predecessor_blocks: HashMap<BasicBlockId, BasicBlockId>, // block -> predecessor
     processes: HashMap<u32, Child>, // Track child processes by PID
     foreground_job: Option<usize>, // Current foreground job ID
+    signal_handlers: HashMap<i32, BasicBlockId>, // Signal number -> handler block
 }
 
 /// Executable value representation
@@ -152,6 +153,7 @@ impl SsaExecutor {
             predecessor_blocks: HashMap::new(),
             processes: HashMap::new(),
             foreground_job: None,
+            signal_handlers: HashMap::new(),
         }
     }
     
@@ -654,8 +656,11 @@ impl SsaExecutor {
                 ExecValue::ExitStatus(status)
             }
             
-            Instruction::Trap(_signal, _handler) => {
-                // TODO: Implement trap
+            Instruction::Trap(signal, handler) => {
+                let signal_val = self.get_value(*signal).as_integer();
+                println!("Setting trap for signal {} to handler block {}", signal_val, handler.0);
+                // Store the signal handler
+                self.signal_handlers.insert(signal_val, *handler);
                 ExecValue::Void
             }
             
@@ -1181,6 +1186,17 @@ impl SsaExecutor {
             eprintln!("process {} not found", pid);
             1
         }
+    }
+    
+    // ============================================
+    // Signal Handling Methods
+    // ============================================
+    
+    /// Check for pending signals and execute handlers
+    fn check_signals(&mut self, func: &Function) -> bool {
+        // For now, we don't have actual signal delivery
+        // In a real implementation, we would check a signal queue
+        false
     }
     
     /// Kill a process
