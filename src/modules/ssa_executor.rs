@@ -1,19 +1,23 @@
 //! SSA IR Executor
-//! Executes SSA IR programs with proper shell semantics
+//! 
+//! Executes SSA IR programs with proper shell semantics.
+//! This module implements a virtual machine that executes SSA IR instructions,
+//! handling process management, I/O redirection, variable expansion, and more.
 
 use std::collections::HashMap;
 use std::process::Command;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::modules::ssa_ir::{
     Function, BasicBlockId, ValueId, ValueType,
-    Instruction, CmpOp,
+    Instruction, CmpOp, ParamExpandOp,
 };
 use crate::modules::builtins::Builtins;
 use crate::modules::env::ShellEnv;
-use crate::modules::variables::get_variable_system;
-use crate::modules::variables::VarAttribute;
+use crate::modules::variables::{get_variable_system, VarAttribute};
+use crate::modules::options::errexit_enabled;
 
-/// SSA IR Executor
+/// SSA IR Executor - executes SSA IR functions
 pub struct SsaExecutor {
     builtins: Builtins,
     env: ShellEnv,
@@ -26,7 +30,7 @@ pub struct SsaExecutor {
     predecessor_blocks: HashMap<BasicBlockId, BasicBlockId>, // block -> predecessor
 }
 
-/// Executable value
+/// Executable value representation
 #[derive(Debug, Clone)]
 enum ExecValue {
     String(String),
@@ -35,10 +39,12 @@ enum ExecValue {
     FileDescriptor(i32),
     ProcessId(u32),
     ExitStatus(i32),
+    Array(Vec<String>),
     Void,
 }
 
 impl ExecValue {
+    /// Get the type of this value
     fn get_type(&self) -> ValueType {
         match self {
             ExecValue::String(_) => ValueType::String,
@@ -47,10 +53,12 @@ impl ExecValue {
             ExecValue::FileDescriptor(_) => ValueType::FileDescriptor,
             ExecValue::ProcessId(_) => ValueType::ProcessId,
             ExecValue::ExitStatus(_) => ValueType::ExitStatus,
+            ExecValue::Array(_) => ValueType::Array,
             ExecValue::Void => ValueType::Void,
         }
     }
     
+    /// Convert to string representation
     fn as_string(&self) -> String {
         match self {
             ExecValue::String(s) => s.clone(),
@@ -59,10 +67,12 @@ impl ExecValue {
             ExecValue::FileDescriptor(fd) => fd.to_string(),
             ExecValue::ProcessId(pid) => pid.to_string(),
             ExecValue::ExitStatus(status) => status.to_string(),
+            ExecValue::Array(arr) => arr.join(" "),
             ExecValue::Void => String::new(),
         }
     }
     
+    /// Convert to integer representation
     fn as_integer(&self) -> i32 {
         match self {
             ExecValue::String(s) => s.parse().unwrap_or(0),
@@ -71,10 +81,12 @@ impl ExecValue {
             ExecValue::FileDescriptor(fd) => *fd,
             ExecValue::ProcessId(pid) => *pid as i32,
             ExecValue::ExitStatus(status) => *status,
+            ExecValue::Array(arr) => arr.len() as i32,
             ExecValue::Void => 0,
         }
     }
     
+    /// Convert to boolean representation
     fn as_boolean(&self) -> bool {
         match self {
             ExecValue::String(s) => !s.is_empty(),
@@ -83,28 +95,40 @@ impl ExecValue {
             ExecValue::FileDescriptor(fd) => *fd >= 0,
             ExecValue::ProcessId(pid) => *pid > 0,
             ExecValue::ExitStatus(status) => *status == 0,
+            ExecValue::Array(arr) => !arr.is_empty(),
             ExecValue::Void => false,
         }
     }
     
-    fn as_fd(&self) -> i32 {
+    /// Convert to file descriptor (if applicable)
+    fn as_fd(&self) -> Option<i32> {
         match self {
-            ExecValue::FileDescriptor(fd) => *fd,
-            _ => -1,
+            ExecValue::FileDescriptor(fd) => Some(*fd),
+            _ => None,
         }
     }
     
-    fn as_pid(&self) -> u32 {
+    /// Convert to process ID (if applicable)
+    fn as_pid(&self) -> Option<u32> {
         match self {
-            ExecValue::ProcessId(pid) => *pid,
-            _ => 0,
+            ExecValue::ProcessId(pid) => Some(*pid),
+            _ => None,
         }
     }
     
-    fn as_status(&self) -> i32 {
+    /// Convert to exit status (if applicable)
+    fn as_status(&self) -> Option<i32> {
         match self {
-            ExecValue::ExitStatus(status) => *status,
-            _ => 0,
+            ExecValue::ExitStatus(status) => Some(*status),
+            _ => None,
+        }
+    }
+    
+    /// Convert to array (if applicable)
+    fn as_array(&self) -> Option<Vec<String>> {
+        match self {
+            ExecValue::Array(arr) => Some(arr.clone()),
+            _ => None,
         }
     }
 }
@@ -145,7 +169,7 @@ impl SsaExecutor {
         self.current_block = None;
         self.predecessor_blocks.clear();
         
-        result.as_status()
+        result.as_status().unwrap_or(0)
     }
     
     /// Execute a basic block
@@ -353,7 +377,7 @@ impl SsaExecutor {
             
             Instruction::Exit(status) => {
                 let status_val = self.get_value(*status).as_status();
-                ExecValue::ExitStatus(status_val)
+                ExecValue::ExitStatus(status_val.unwrap_or(0))
             }
             
             // Pipeline operations
@@ -736,7 +760,9 @@ impl SsaExecutor {
                 // TODO: Implement command substitution
                 // For now, just return exit status as string
                 let status = self.get_value(*cmd_result).as_status();
-                let value = ExecValue::String(status.to_string());
+                let value = ExecValue::String(
+    status.map(|s| s.to_string()).unwrap_or_default()
+); 
                 self.set_value(*result, value.clone());
                 value
             }
@@ -1014,3 +1040,4 @@ impl SsaExecutor {
         &mut self.env
     }
 }
+
