@@ -609,7 +609,7 @@ impl SsaIrGenerator {
         self.add_instruction(Instruction::ConstInt(0, last_status));
 
         for (i, cmd) in commands.iter().enumerate() {
-            if i > 0 {
+            if i > 0 && i - 1 < separators.len() {
                 match separators[i - 1] {
                     CommandSeparator::Ampersand => {
                         // Background execution - for now, just execute in foreground
@@ -844,36 +844,82 @@ impl SsaIrGenerator {
         items: Vec<String>,
         body: Vec<Box<AstNode>>,
     ) -> ValueId {
-        // Create loop variable
+        // Create loop variable for the loop parameter
         let var_val = self.create_value_with_name(ValueType::String, variable.to_string());
         self.add_instruction(Instruction::AllocVar(variable.to_string(), var_val));
 
-        let loop_start = self.create_block_with_label("for_start".to_string());
-        let _loop_body = self.create_block_with_label("for_body".to_string());
-        let loop_end = self.create_block_with_label("for_end".to_string());
+        // Create an array from the items list
+        let items_array = self.create_value(ValueType::Array);
+        self.add_instruction(Instruction::ConstArray(items.clone(), items_array));
 
-        // Jump to start
-        self.add_instruction(Instruction::Jump(loop_start));
+        // Create an index variable to track position in array
+        let index_var = self.create_value_with_name(ValueType::Integer, format!("_for_idx_{}", variable));
+        self.add_instruction(Instruction::AllocVar(format!("_for_idx_{}", variable), index_var));
 
-        // Start block: initialize iterator
-        self.set_current_block(loop_start);
+        // Initialize index to 0
+        let zero = self.create_const_int(0);
+        self.add_instruction(Instruction::Store(index_var, zero));
 
-        // For each item
-        for item in items {
-            // Set variable value
-            let item_val = self.create_value(ValueType::String);
-            self.add_instruction(Instruction::ConstString(item, item_val));
-            self.add_instruction(Instruction::Store(var_val, item_val));
+        // Create loop blocks
+        let cond_block = self.create_block_with_label(format!("for_cond_{}", variable));
+        let body_block = self.create_block_with_label(format!("for_body_{}", variable));
+        let update_block = self.create_block_with_label(format!("for_update_{}", variable));
+        let exit_block = self.create_block_with_label(format!("for_exit_{}", variable));
 
-            // Execute body
-            self.generate_compound_command(body.clone());
-        }
+        // Jump to condition block
+        self.add_instruction(Instruction::Jump(cond_block));
 
-        // Jump to end
-        self.add_instruction(Instruction::Jump(loop_end));
+        // ============= Condition Block =============
+        self.set_current_block(cond_block);
 
-        // End block
-        self.set_current_block(loop_end);
+        // Get array length
+        let array_len = self.create_value(ValueType::Integer);
+        self.add_instruction(Instruction::ArrayLength(items_array, array_len));
+
+        // Check: index < length
+        let cond = self.create_value(ValueType::Boolean);
+        self.add_instruction(Instruction::Cmp(
+            index_var,
+            array_len,
+            CmpOp::Lt,
+            cond,
+        ));
+
+        // Branch to body if condition true, else exit
+        self.add_instruction(Instruction::Branch(cond, body_block, exit_block));
+
+        // ============= Body Block =============
+        self.set_current_block(body_block);
+
+        // Get current item from array: items[index]
+        let current_item = self.create_value(ValueType::String);
+        self.add_instruction(Instruction::ArrayGet(items_array, index_var, current_item));
+
+        // Assign to loop variable
+        self.add_instruction(Instruction::Store(var_val, current_item));
+
+        // Execute loop body
+        self.generate_compound_command(body.clone());
+
+        // Jump to update block
+        self.add_instruction(Instruction::Jump(update_block));
+
+        // ============= Update Block =============
+        self.set_current_block(update_block);
+
+        // Increment index: i = i + 1
+        let one = self.create_const_int(1);
+        let next_index = self.create_value(ValueType::Integer);
+        self.add_instruction(Instruction::Add(index_var, one, next_index));
+
+        // Store updated index back
+        self.add_instruction(Instruction::Store(index_var, next_index));
+
+        // Jump back to condition
+        self.add_instruction(Instruction::Jump(cond_block));
+
+        // ============= Exit Block =============
+        self.set_current_block(exit_block);
         let result = self.create_value(ValueType::ExitStatus);
         self.add_instruction(Instruction::ConstInt(0, result));
         result

@@ -858,25 +858,41 @@ impl SsaExecutor {
             }
 
             Instruction::ArraySet(_array, _index, _value) => {
-                // TODO: Implement array set
+                // TODO: Implement array set properly
                 ExecValue::Void
             }
 
-            Instruction::ArrayGet(_array, _index, result) => {
-                // TODO: Implement array get
-                let value = ExecValue::String(String::new());
-                self.set_value(*result, value.clone());
-                value
+            Instruction::ArrayGet(array, index, result) => {
+                let arr = self.get_value(*array);
+                let idx = self.get_value(*index).as_integer() as usize;
+                
+                if let ExecValue::Array(arr_vec) = arr {
+                    let value = if idx < arr_vec.len() {
+                        ExecValue::String(arr_vec[idx].clone())
+                    } else {
+                        ExecValue::String(String::new()) // Out of bounds returns empty string
+                    };
+                    self.set_value(*result, value.clone());
+                    value
+                } else {
+                    let value = ExecValue::String(String::new());
+                    self.set_value(*result, value.clone());
+                    value
+                }
             }
 
             Instruction::ArrayLength(array, result) => {
-                // TODO: Implement array length
-                let value = ExecValue::Integer(0);
+                let arr = self.get_value(*array);
+                let len = match arr {
+                    ExecValue::Array(arr_vec) => arr_vec.len() as i32,
+                    _ => 0,
+                };
+                let value = ExecValue::Integer(len);
                 self.set_value(*result, value.clone());
                 value
             }
 
-            Instruction::ArrayKeys(array, result) => {
+            Instruction::ArrayKeys(_array, result) => {
                 // TODO: Implement array keys
                 let value = ExecValue::String(String::new());
                 self.set_value(*result, value.clone());
@@ -884,8 +900,7 @@ impl SsaExecutor {
             }
 
             Instruction::ConstArray(values, result) => {
-                // TODO: Implement const array
-                let value = ExecValue::String(format!("{:?}", values));
+                let value = ExecValue::Array(values.clone());
                 self.set_value(*result, value.clone());
                 value
             }
