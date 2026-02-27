@@ -126,6 +126,11 @@ impl<'a> Parser<'a> {
             return self.parse_subshell();
         }
         
+        // Check for function definition with name() syntax
+        if self.is_function_definition_syntax() {
+            return self.parse_function_definition_name_syntax();
+        }
+        
         // Parse logical OR expression (lowest precedence)
         self.parse_logical_or()
     }
@@ -480,7 +485,13 @@ impl<'a> Parser<'a> {
         let mut then_branch = Vec::new();
         while !self.check_token_type(&TokenType::Elif) && 
               !self.check_token_type(&TokenType::Else) && 
-              !self.check_token_type(&TokenType::Fi) {
+              !self.check_token_type(&TokenType::Fi) &&
+              !self.is_at_end() {
+            // Skip semicolons and newlines between commands
+            if self.check_token_type(&TokenType::Semicolon) || self.check_token_type(&TokenType::Newline) {
+                self.advance();
+                continue;
+            }
             then_branch.push(Box::new(self.parse_command()?));
         }
         
@@ -492,6 +503,11 @@ impl<'a> Parser<'a> {
             self.advance();
             
             let elif_condition = self.parse_command()?;
+            
+            // Skip semicolon/newline after condition
+            if self.check_token_type(&TokenType::Semicolon) || self.check_token_type(&TokenType::Newline) {
+                self.advance();
+            }
             
             if !self.check_token_type(&TokenType::Then) {
                 return Err(ParseError {
@@ -507,7 +523,13 @@ impl<'a> Parser<'a> {
             let mut elif_body = Vec::new();
             while !self.check_token_type(&TokenType::Elif) && 
                   !self.check_token_type(&TokenType::Else) && 
-                  !self.check_token_type(&TokenType::Fi) {
+                  !self.check_token_type(&TokenType::Fi) &&
+                  !self.is_at_end() {
+                // Skip semicolons and newlines between commands
+                if self.check_token_type(&TokenType::Semicolon) || self.check_token_type(&TokenType::Newline) {
+                    self.advance();
+                    continue;
+                }
                 elif_body.push(Box::new(self.parse_command()?));
             }
             
@@ -522,7 +544,12 @@ impl<'a> Parser<'a> {
             self.advance();
             
             let mut else_body = Vec::new();
-            while !self.check_token_type(&TokenType::Fi) {
+            while !self.check_token_type(&TokenType::Fi) && !self.is_at_end() {
+                // Skip semicolons and newlines between commands
+                if self.check_token_type(&TokenType::Semicolon) || self.check_token_type(&TokenType::Newline) {
+                    self.advance();
+                    continue;
+                }
                 else_body.push(Box::new(self.parse_command()?));
             }
             
@@ -576,7 +603,12 @@ impl<'a> Parser<'a> {
         
         // Parse body
         let mut body = Vec::new();
-        while !self.check_token_type(&TokenType::Done) {
+        while !self.check_token_type(&TokenType::Done) && !self.is_at_end() {
+            // Skip semicolons and newlines between commands
+            if self.check_token_type(&TokenType::Semicolon) || self.check_token_type(&TokenType::Newline) {
+                self.advance();
+                continue;
+            }
             body.push(Box::new(self.parse_command()?));
         }
         
@@ -625,7 +657,12 @@ impl<'a> Parser<'a> {
         
         // Parse body
         let mut body = Vec::new();
-        while !self.check_token_type(&TokenType::Done) {
+        while !self.check_token_type(&TokenType::Done) && !self.is_at_end() {
+            // Skip semicolons and newlines between commands
+            if self.check_token_type(&TokenType::Semicolon) || self.check_token_type(&TokenType::Newline) {
+                self.advance();
+                continue;
+            }
             body.push(Box::new(self.parse_command()?));
         }
         
@@ -659,7 +696,10 @@ impl<'a> Parser<'a> {
         
         // Parse variable name
         let variable = if let Some(token) = self.current_token.clone() {
-            if let TokenType::Word(name) = token.token_type {
+            if let TokenType::Name(name) = token.token_type {
+                self.advance();
+                name.clone()
+            } else if let TokenType::Word(name) = token.token_type {
                 self.advance();
                 name.clone()
             } else {
@@ -693,7 +733,10 @@ impl<'a> Parser<'a> {
             if let TokenType::Word(item) = &token.token_type {
                 items.push(item.clone());
                 self.advance();
-            } else if token.token_type == TokenType::Semicolon {
+            } else if let TokenType::Name(item) = &token.token_type {
+                items.push(item.clone());
+                self.advance();
+            } else if token.token_type == TokenType::Semicolon || token.token_type == TokenType::Newline {
                 break;
             } else {
                 return Err(ParseError {
@@ -701,6 +744,11 @@ impl<'a> Parser<'a> {
                     token: token.clone(),
                 });
             }
+        }
+        
+        // Skip semicolon/newline after items
+        if self.check_token_type(&TokenType::Semicolon) || self.check_token_type(&TokenType::Newline) {
+            self.advance();
         }
         
         // Parse 'do'
@@ -717,7 +765,12 @@ impl<'a> Parser<'a> {
         
         // Parse body
         let mut body = Vec::new();
-        while !self.check_token_type(&TokenType::Done) {
+        while !self.check_token_type(&TokenType::Done) && !self.is_at_end() {
+            // Skip semicolons and newlines between commands
+            if self.check_token_type(&TokenType::Semicolon) || self.check_token_type(&TokenType::Newline) {
+                self.advance();
+                continue;
+            }
             body.push(Box::new(self.parse_command()?));
         }
         
@@ -752,7 +805,12 @@ impl<'a> Parser<'a> {
         
         // Parse commands
         let mut commands = Vec::new();
-        while !self.check_token_type(&TokenType::RightBrace) {
+        while !self.check_token_type(&TokenType::RightBrace) && !self.is_at_end() {
+            // Skip semicolons and newlines between commands
+            if self.check_token_type(&TokenType::Semicolon) || self.check_token_type(&TokenType::Newline) {
+                self.advance();
+                continue;
+            }
             commands.push(Box::new(self.parse_command()?));
         }
         
@@ -877,7 +935,127 @@ impl<'a> Parser<'a> {
         })
     }
     
-    // Helper methods
+    /// Check if the current tokens represent a function definition with name() syntax
+    fn is_function_definition_syntax(&mut self) -> bool {
+        // Save current position
+        let saved_tokens = self.tokens.clone();
+        let saved_current_token = self.current_token.clone();
+        
+        // Check for pattern: Word/Name + LeftParen + RightParen + LeftBrace
+        // First token should be a word/name
+        let first_is_word = if let Some(token) = &self.current_token {
+            matches!(&token.token_type, TokenType::Word(_) | TokenType::Name(_))
+        } else {
+            false
+        };
+        
+        if !first_is_word {
+            // Restore position
+            self.tokens = saved_tokens;
+            self.current_token = saved_current_token;
+            return false;
+        }
+        
+        // Advance past the name
+        self.advance();
+        
+        // Check for LeftParen
+        let has_lparen = self.check_token_type(&TokenType::LeftParen);
+        if !has_lparen {
+            // Restore position
+            self.tokens = saved_tokens;
+            self.current_token = saved_current_token;
+            return false;
+        }
+        self.advance();
+        
+        // Check for RightParen
+        let has_rparen = self.check_token_type(&TokenType::RightParen);
+        if !has_rparen {
+            // Restore position
+            self.tokens = saved_tokens;
+            self.current_token = saved_current_token;
+            return false;
+        }
+        self.advance();
+        
+        // Check for LeftBrace
+        let has_lbrace = self.check_token_type(&TokenType::LeftBrace);
+        
+        // Restore position
+        self.tokens = saved_tokens;
+        self.current_token = saved_current_token;
+        
+        has_lbrace
+    }
+    
+    /// Parse function definition with name() syntax
+    fn parse_function_definition_name_syntax(&mut self) -> Result<AstNode, ParseError> {
+        let mut tokens = Vec::new();
+        
+        // Parse function name
+        let name_token = self.current_token.clone().unwrap();
+        let name = if let TokenType::Word(name) | TokenType::Name(name) = &name_token.token_type {
+            tokens.push(name_token.clone());
+            self.advance();
+            name.clone()
+        } else {
+            return Err(ParseError {
+                message: "Expected function name".to_string(),
+                token: name_token.clone(),
+            });
+        };
+        
+        // Parse '('
+        if !self.check_token_type(&TokenType::LeftParen) {
+            return Err(ParseError {
+                message: "Expected '(' after function name".to_string(),
+                token: self.current_token.clone().unwrap_or_else(|| 
+                    Token::new(TokenType::Error("No token".to_string()), "".to_string(), 1, 1)),
+            });
+        }
+        let lparen_token = self.current_token.clone().unwrap();
+        tokens.push(lparen_token);
+        self.advance();
+        
+        // Parse ')'
+        if !self.check_token_type(&TokenType::RightParen) {
+            return Err(ParseError {
+                message: "Expected ')' after '(' in function definition".to_string(),
+                token: self.current_token.clone().unwrap_or_else(|| 
+                    Token::new(TokenType::Error("No token".to_string()), "".to_string(), 1, 1)),
+            });
+        }
+        let rparen_token = self.current_token.clone().unwrap();
+        tokens.push(rparen_token);
+        self.advance();
+        
+        // Parse function body (compound command)
+        let body = if let Ok(compound) = self.parse_compound_command() {
+            compound
+        } else {
+            return Err(ParseError {
+                message: "Expected compound command for function body".to_string(),
+                token: self.current_token.clone().unwrap_or_else(|| 
+                    Token::new(TokenType::Error("No token".to_string()), "".to_string(), 1, 1)),
+            });
+        };
+        
+        // Extract commands from compound command body
+        let body_commands = if let AstNode::CompoundCommand { commands, .. } = body {
+            commands
+        } else {
+            Vec::new()
+        };
+        
+        Ok(AstNode::FunctionDefinition {
+            name,
+            body: body_commands,
+            tokens,
+        })
+    }
+
+// Helper methods
     
     fn advance(&mut self) {
         self.current_token = self.tokens.next();
@@ -903,4 +1081,3 @@ impl<'a> Parser<'a> {
         self.current_token.is_none()
     }
 }
-

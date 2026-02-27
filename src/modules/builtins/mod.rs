@@ -31,6 +31,7 @@ pub mod pwd;           // pwd
 pub mod true_cmd;      // true
 pub mod wait;          // wait
 pub mod help;          // help
+pub mod test;          // test / [
 
 // TODO: Implement missing builtins
 // pub mod command;       // command
@@ -76,3 +77,4 @@ pub use pwd::Pwd;
 pub use true_cmd::True;
 pub use wait::Wait;
 pub use help::Help;
+pub use test::TestCommand;
