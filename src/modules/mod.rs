@@ -29,6 +29,7 @@ pub mod subshell;
 pub mod process_substitution;
 pub mod job_control;
 pub mod job_control_enhanced;
+pub mod job_control_safe;
 pub mod options;
 pub mod options_enhanced;
 pub mod variables;
