@@ -197,6 +197,25 @@ impl SsaExecutor {
         self.current_block = Some(block_id);
         self.program_counter = 0;
 
+        // Detect and manage loop contexts based on block labels
+        if let Some(label) = &block.label {
+            if label.contains("_body") && !label.contains("_exit") {
+                // Entering a loop body - set up context if this is a known loop type
+                if label.contains("while_body") || label.contains("until_body") || label.contains("for_body") {
+                    // Find the corresponding exit block
+                    if let Some(exit_block) = self.find_exit_block(func, label) {
+                        // Find the update/condition block
+                        if let Some(update_block) = self.find_update_block(func, label) {
+                            self.loop_context.push(LoopContext {
+                                exit_block,
+                                update_block,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
         // First, execute Phi nodes if we have a predecessor
         let pred_block = self.predecessor_blocks.get(&block_id).cloned();
         if let Some(pred_block) = pred_block {
@@ -1487,6 +1506,60 @@ impl SsaExecutor {
 
         // Check if we've consumed all of both strings
         w_idx == word.len() && p_idx == pattern.len()
+    }
+
+    /// Find the exit block for a loop given its label
+    fn find_exit_block(&self, func: &Function, loop_body_label: &str) -> Option<BasicBlockId> {
+        // Extract loop name from label (e.g., "while_body" -> "while", "for_body_i" -> "for_i")
+        let loop_name = if loop_body_label.ends_with("_body") {
+            &loop_body_label[..loop_body_label.len() - 5] // Remove "_body"
+        } else {
+            loop_body_label
+        };
+
+        // Look for the corresponding exit block
+        let exit_label = format!("{}_exit", loop_name);
+        for block in func.blocks.values() {
+            if let Some(label) = &block.label {
+                if label == &exit_label {
+                    return Some(block.id);
+                }
+            }
+        }
+        None
+    }
+
+    /// Find the update/condition block for a loop given its label
+    fn find_update_block(&self, func: &Function, loop_body_label: &str) -> Option<BasicBlockId> {
+        // Extract loop name from label
+        let loop_name = if loop_body_label.ends_with("_body") {
+            &loop_body_label[..loop_body_label.len() - 5]
+        } else {
+            loop_body_label
+        };
+
+        // Look for the condition or update block (depends on loop type)
+        // Try condition first (while_cond, until_cond, for_cond)
+        let cond_label = format!("{}_cond", loop_name);
+        for block in func.blocks.values() {
+            if let Some(label) = &block.label {
+                if label == &cond_label {
+                    return Some(block.id);
+                }
+            }
+        }
+
+        // Try update block for for loops (for_update_i)
+        let update_label = format!("{}_update", loop_name);
+        for block in func.blocks.values() {
+            if let Some(label) = &block.label {
+                if label == &update_label {
+                    return Some(block.id);
+                }
+            }
+        }
+
+        None
     }
 
     /// Extract loop metadata from block labels to set up loop context
