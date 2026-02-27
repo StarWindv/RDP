@@ -11,7 +11,7 @@ impl BuiltinCommand for Pwd {
     fn name(&self) -> &'static str {
         "pwd"
     }
-    
+
     fn execute(&self, _args: &[String], env: &mut ShellEnv) -> i32 {
         println!("{}", env.current_dir);
         0

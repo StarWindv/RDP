@@ -4,8 +4,8 @@
 use std::process::{Command, Stdio};
 
 use crate::modules::ast::AstNode;
-use crate::modules::env::ShellEnv;
 use crate::modules::builtins::Builtins;
+use crate::modules::env::ShellEnv;
 
 /// Pipeline executor for POSIX Shell
 pub struct PipelineExecutor {
@@ -18,30 +18,30 @@ impl PipelineExecutor {
     pub fn new(env: ShellEnv, builtins: Builtins) -> Self {
         Self { env, builtins }
     }
-    
+
     /// Execute a pipeline of commands
     pub fn execute_pipeline(&mut self, commands: &[AstNode]) -> Result<i32, String> {
         if commands.is_empty() {
             return Ok(0);
         }
-        
+
         if commands.len() == 1 {
             // Single command, no pipeline needed
             return self.execute_single_command(&commands[0]);
         }
-        
+
         // TODO: Implement multi-command pipeline
         // For now, just execute the first command
         self.execute_single_command(&commands[0])
     }
-    
+
     /// Execute a single command (helper for pipeline)
     fn execute_single_command(&mut self, command: &AstNode) -> Result<i32, String> {
         // TODO: Implement command execution
         // For now, just return success
         Ok(0)
     }
-    
+
     /// Execute a command with optional input/output redirection
     fn execute_command_with_io(
         &mut self,
@@ -52,38 +52,38 @@ impl PipelineExecutor {
         // TODO: Implement command execution with IO redirection
         Ok(0)
     }
-    
+
     /// Create a process for a command
     fn create_process(&self, command: &str, args: &[String]) -> Result<Command, String> {
         let mut cmd = Command::new(command);
         cmd.args(args);
-        
+
         // Set up environment variables
         for (key, value) in self.env.vars.iter() {
             cmd.env(key, value);
         }
-        
+
         Ok(cmd)
     }
-    
+
     /// Execute a builtin command
     fn execute_builtin(&mut self, name: &str, args: &[String]) -> Result<i32, String> {
         // TODO: Implement builtin execution
         Ok(0)
     }
-    
+
     /// Check if a command is a builtin
     fn is_builtin(&self, name: &str) -> bool {
         // TODO: Check if command is a builtin
         false
     }
-    
+
     /// Find command in PATH
     fn find_command(&self, name: &str) -> Option<String> {
         // TODO: Implement PATH search
         Some(name.to_string())
     }
-    
+
     /// Handle pipeline errors
     fn handle_pipeline_error(&self, error: &str) -> i32 {
         eprintln!("Pipeline error: {}", error);
@@ -110,7 +110,7 @@ impl PipelineContext {
             exit_status: 0,
         }
     }
-    
+
     /// Update context after command execution
     pub fn update(&mut self, exit_status: i32) {
         self.exit_status = exit_status;
@@ -120,25 +120,25 @@ impl PipelineContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_pipeline_executor_creation() {
         let env = ShellEnv::new();
         let builtins = Builtins::new();
         let executor = PipelineExecutor::new(env, builtins);
-        
+
         // Just test that it can be created
         assert!(true);
     }
-    
+
     #[test]
     fn test_pipeline_context() {
         let context = PipelineContext::new();
-        
+
         assert!(context.previous_stdout.is_none());
         assert!(context.next_stdin.is_none());
         assert_eq!(context.exit_status, 0);
-        
+
         let mut context = context;
         context.update(1);
         assert_eq!(context.exit_status, 1);

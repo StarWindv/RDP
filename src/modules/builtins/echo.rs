@@ -11,7 +11,7 @@ impl BuiltinCommand for Echo {
     fn name(&self) -> &'static str {
         "echo"
     }
-    
+
     fn execute(&self, args: &[String], _env: &mut ShellEnv) -> i32 {
         let mut first = true;
         for arg in args {

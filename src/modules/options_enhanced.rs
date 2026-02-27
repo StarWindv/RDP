@@ -19,7 +19,7 @@ impl EnhancedShellOptions {
     /// Create new root shell options with defaults
     pub fn new() -> Self {
         let mut options = HashMap::new();
-        
+
         // Set default values
         for opt in &[
             ShellOption::ErrExit,
@@ -41,7 +41,7 @@ impl EnhancedShellOptions {
         ] {
             options.insert(*opt, opt.default_value());
         }
-        
+
         Self {
             options,
             positional_params: Vec::new(),
@@ -49,7 +49,7 @@ impl EnhancedShellOptions {
             changed_options: HashMap::new(),
         }
     }
-    
+
     /// Create a child options instance (for subshells, functions)
     pub fn create_child(&self) -> Self {
         let parent = Arc::new(Mutex::new(self.clone()));
@@ -60,23 +60,23 @@ impl EnhancedShellOptions {
             changed_options: HashMap::new(),
         }
     }
-    
+
     /// Check if an option is enabled
     pub fn is_enabled(&self, option: ShellOption) -> bool {
         *self.options.get(&option).unwrap_or(&false)
     }
-    
+
     /// Check if option is inherited from parent
     pub fn is_inherited(&self, option: ShellOption) -> bool {
         !self.changed_options.contains_key(&option)
     }
-    
+
     /// Set an option
     pub fn set_option(&mut self, option: ShellOption, enabled: bool) {
         self.options.insert(option, enabled);
         self.changed_options.insert(option, enabled);
     }
-    
+
     /// Reset an option to parent value
     pub fn reset_option(&mut self, option: ShellOption) {
         if let Some(parent) = &self.parent {
@@ -87,7 +87,7 @@ impl EnhancedShellOptions {
         }
         self.changed_options.remove(&option);
     }
-    
+
     /// Reset all options to parent values
     pub fn reset_all_options(&mut self) {
         if let Some(parent) = &self.parent {
@@ -96,76 +96,84 @@ impl EnhancedShellOptions {
         }
         self.changed_options.clear();
     }
-    
+
     /// Set positional parameters
     pub fn set_positional_params(&mut self, params: Vec<String>) {
         self.positional_params = params;
     }
-    
+
     /// Get positional parameters
     pub fn get_positional_params(&self) -> &[String] {
         &self.positional_params
     }
-    
+
     /// Shift positional parameters
     pub fn shift_positional_params(&mut self, n: usize) -> Vec<String> {
         if n == 0 || self.positional_params.is_empty() {
             return Vec::new();
         }
-        
+
         let shift_count = std::cmp::min(n, self.positional_params.len());
         let shifted: Vec<String> = self.positional_params.drain(0..shift_count).collect();
-        
+
         // If all params were shifted, add an empty string
         if self.positional_params.is_empty() {
             self.positional_params.push(String::new());
         }
-        
+
         shifted
     }
-    
+
     /// Get all options as formatted strings
     pub fn format_all_options(&self) -> Vec<String> {
         let mut result = Vec::new();
-        
+
         // Format current options
         for (opt, &enabled) in &self.options {
             let status = if enabled { "on" } else { "off" };
-            let inherited = if self.is_inherited(*opt) { " (inherited)" } else { "" };
+            let inherited = if self.is_inherited(*opt) {
+                " (inherited)"
+            } else {
+                ""
+            };
             result.push(format!("{}: {}{}", opt.long_name(), status, inherited));
         }
-        
+
         result.sort();
         result
     }
-    
+
     /// Get changed options as formatted strings
     pub fn format_changed_options(&self) -> Vec<String> {
         let mut result = Vec::new();
-        
+
         for (opt, &enabled) in &self.changed_options {
             let status = if enabled { "on" } else { "off" };
             result.push(format!("{}: {}", opt.long_name(), status));
         }
-        
+
         result.sort();
         result
     }
-    
+
     /// Parse and apply options from command line arguments with better error handling
-    pub fn apply_options_with_context(&mut self, args: &[String], context: &str) -> Result<usize, String> {
+    pub fn apply_options_with_context(
+        &mut self,
+        args: &[String],
+        context: &str,
+    ) -> Result<usize, String> {
         let mut i = 0;
         let mut option_errors = Vec::new();
-        
+
         while i < args.len() {
             let arg = &args[i];
-            
+
             if arg == "--" {
                 // End of options
                 i += 1;
                 break;
             }
-            
+
             if arg.starts_with('-') && !arg.starts_with("--") && arg != "-" && arg != "-o" {
                 // Handle short options: -e, -u, -x, etc.
                 for ch in arg[1..].chars() {
@@ -195,7 +203,7 @@ impl EnhancedShellOptions {
                 if i + 1 >= args.len() {
                     return Err(format!("{}: -o requires an argument", context));
                 }
-                
+
                 let opt_name = &args[i + 1];
                 match ShellOption::from_long(opt_name) {
                     Some(opt) => {
@@ -205,14 +213,14 @@ impl EnhancedShellOptions {
                         option_errors.push(format!("{}: invalid option", opt_name));
                     }
                 }
-                
+
                 i += 1; // Skip the option name
             } else if arg == "+o" {
                 // Clear long option: +o option_name
                 if i + 1 >= args.len() {
                     return Err(format!("{}: +o requires an argument", context));
                 }
-                
+
                 let opt_name = &args[i + 1];
                 match ShellOption::from_long(opt_name) {
                     Some(opt) => {
@@ -222,7 +230,7 @@ impl EnhancedShellOptions {
                         option_errors.push(format!("{}: invalid option", opt_name));
                     }
                 }
-                
+
                 i += 1; // Skip the option name
             } else if arg == "-" {
                 // Unset positional parameters
@@ -231,26 +239,26 @@ impl EnhancedShellOptions {
                 // Not an option, start of positional parameters
                 break;
             }
-            
+
             i += 1;
         }
-        
+
         if !option_errors.is_empty() {
             return Err(format!("{}: {}", context, option_errors.join(", ")));
         }
-        
+
         Ok(i)
     }
-    
+
     /// Apply positional parameters after options
     pub fn apply_positional_params(&mut self, args: &[String], start_index: usize) {
         self.positional_params = args[start_index..].to_vec();
     }
-    
+
     /// Export options to environment variables (for child processes)
     pub fn export_to_env(&self) -> HashMap<String, String> {
         let mut env = HashMap::new();
-        
+
         // Export relevant options as environment variables
         if self.is_enabled(ShellOption::ErrExit) {
             env.insert("SHELLOPTS".to_string(), "errexit".to_string());
@@ -261,15 +269,15 @@ impl EnhancedShellOptions {
         if self.is_enabled(ShellOption::XTrace) {
             env.insert("SHELLOPTS".to_string(), "xtrace".to_string());
         }
-        
+
         // Export positional parameters as $1, $2, etc.
         for (i, param) in self.positional_params.iter().enumerate() {
             env.insert(format!("{}", i + 1), param.clone());
         }
-        
+
         env
     }
-    
+
     /// Import options from environment variables
     pub fn import_from_env(&mut self, env: &HashMap<String, String>) {
         if let Some(shellopts) = env.get("SHELLOPTS") {
@@ -280,34 +288,36 @@ impl EnhancedShellOptions {
             }
         }
     }
-    
+
     /// Validate option combinations
     pub fn validate_options(&self) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
-        
+
         // Check for conflicting options
         if self.is_enabled(ShellOption::NoExec) && self.is_enabled(ShellOption::XTrace) {
             errors.push("noexec and xtrace cannot be used together".to_string());
         }
-        
+
         if self.is_enabled(ShellOption::Interactive) && self.is_enabled(ShellOption::NoExec) {
             errors.push("interactive shells cannot use noexec".to_string());
         }
-        
+
         if errors.is_empty() {
             Ok(())
         } else {
             Err(errors)
         }
     }
-    
+
     /// Get option description for help
     pub fn get_option_help(&self, option_name: &str) -> Option<String> {
         if let Some(opt) = ShellOption::from_long(option_name) {
-            Some(format!("{} (-{}): {}", 
-                opt.long_name(), 
+            Some(format!(
+                "{} (-{}): {}",
+                opt.long_name(),
                 opt.short_name().unwrap_or(' '),
-                opt.description()))
+                opt.description()
+            ))
         } else {
             None
         }
@@ -316,7 +326,7 @@ impl EnhancedShellOptions {
 
 /// Global enhanced shell options instance
 lazy_static::lazy_static! {
-    static ref ENHANCED_SHELL_OPTIONS: Arc<Mutex<EnhancedShellOptions>> = 
+    static ref ENHANCED_SHELL_OPTIONS: Arc<Mutex<EnhancedShellOptions>> =
         Arc::new(Mutex::new(EnhancedShellOptions::new()));
 }
 
@@ -334,7 +344,7 @@ pub fn init_enhanced_options() {
 pub fn set_builtin(args: &[String]) -> i32 {
     let options = get_enhanced_options();
     let mut opts_guard = options.lock().unwrap();
-    
+
     if args.is_empty() {
         // Display all variables and functions
         // For now, just display options
@@ -344,14 +354,14 @@ pub fn set_builtin(args: &[String]) -> i32 {
         }
         return 0;
     }
-    
+
     match opts_guard.apply_options_with_context(args, "set") {
         Ok(opt_end) => {
             // Apply positional parameters if any
             if opt_end < args.len() {
                 opts_guard.apply_positional_params(args, opt_end);
             }
-            
+
             // Validate options
             match opts_guard.validate_options() {
                 Ok(_) => 0,
@@ -374,7 +384,7 @@ pub fn set_builtin(args: &[String]) -> i32 {
 pub fn shopt_builtin(args: &[String]) -> i32 {
     let options = get_enhanced_options();
     let opts_guard = options.lock().unwrap();
-    
+
     if args.is_empty() {
         // List all options
         for line in opts_guard.format_all_options() {
@@ -382,7 +392,7 @@ pub fn shopt_builtin(args: &[String]) -> i32 {
         }
         return 0;
     }
-    
+
     match args[0].as_str() {
         "-s" | "--set" => {
             // Set options
@@ -390,7 +400,7 @@ pub fn shopt_builtin(args: &[String]) -> i32 {
                 eprintln!("shopt: option name required");
                 return 1;
             }
-            
+
             let mut opts_guard = options.lock().unwrap();
             for opt_name in &args[1..] {
                 if let Some(opt) = ShellOption::from_long(opt_name) {
@@ -408,7 +418,7 @@ pub fn shopt_builtin(args: &[String]) -> i32 {
                 eprintln!("shopt: option name required");
                 return 1;
             }
-            
+
             let mut opts_guard = options.lock().unwrap();
             for opt_name in &args[1..] {
                 if let Some(opt) = ShellOption::from_long(opt_name) {
@@ -426,7 +436,7 @@ pub fn shopt_builtin(args: &[String]) -> i32 {
                 eprintln!("shopt: option name required");
                 return 1;
             }
-            
+
             for opt_name in &args[1..] {
                 if let Some(opt) = ShellOption::from_long(opt_name) {
                     if !opts_guard.is_enabled(opt) {

@@ -10,12 +10,12 @@ mod if_tests {
         let input = "if true; then echo yes; fi";
         let lexer = Lexer::new(input);
         let tokens: Vec<_> = lexer.collect();
-        
+
         println!("Tokens:");
         for token in &tokens {
             println!("  {:?}", token.token_type);
         }
-        
+
         let mut parser = Parser::new(input);
         match parser.parse() {
             Ok(ast) => {

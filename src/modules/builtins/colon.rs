@@ -11,7 +11,7 @@ impl BuiltinCommand for Colon {
     fn name(&self) -> &'static str {
         ":"
     }
-    
+
     fn execute(&self, _args: &[String], _env: &mut ShellEnv) -> i32 {
         0
     }

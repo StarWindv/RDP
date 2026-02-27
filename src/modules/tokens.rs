@@ -11,86 +11,86 @@ pub enum TokenType {
     // ============================================
     Word(String),           // Any word
     AssignmentWord(String), // VAR=value or VAR= (empty assignment)
-    Name(String),          // Valid identifier (for variable names)
-    
+    Name(String),           // Valid identifier (for variable names)
+
     // ============================================
     // Operators (from POSIX Shell Grammar)
     // ============================================
-    
+
     // Control operators
-    Newline,               // \n
-    Semicolon,             // ;
-    Ampersand,             // &
-    Pipe,                  // |
-    DSemi,                 // ;; (case terminator)
-    
+    Newline,   // \n
+    Semicolon, // ;
+    Ampersand, // &
+    Pipe,      // |
+    DSemi,     // ;; (case terminator)
+
     // AND-OR list operators
-    AndIf,                 // &&
-    OrIf,                  // ||
-    
+    AndIf, // &&
+    OrIf,  // ||
+
     // Redirection operators
-    Less,                  // <
-    Great,                 // >
-    DLess,                 // <<
-    DGreat,                // >>
-    LessAnd,               // <&
-    GreatAnd,              // >&
-    LessGreat,             // <>
-    DLessDash,             // <<-
-    Clobber,               // >|
-    
+    Less,      // <
+    Great,     // >
+    DLess,     // <<
+    DGreat,    // >>
+    LessAnd,   // <&
+    GreatAnd,  // >&
+    LessGreat, // <>
+    DLessDash, // <<-
+    Clobber,   // >|
+
     // File descriptor numbers for redirection
-    Number(i32),           // e.g., 2>file
-    
+    Number(i32), // e.g., 2>file
+
     // ============================================
     // Reserved Words (POSIX Shell reserved words)
     // ============================================
-    Bang,                  // !
-    Case,                  // case
-    Do,                    // do
-    Done,                  // done
-    Elif,                  // elif
-    Else,                  // else
-    Esac,                  // esac
-    Fi,                    // fi
-    For,                   // for
-    If,                    // if
-    In,                    // in
-    Then,                  // then
-    Until,                 // until
-    While,                 // while
-    
+    Bang,  // !
+    Case,  // case
+    Do,    // do
+    Done,  // done
+    Elif,  // elif
+    Else,  // else
+    Esac,  // esac
+    Fi,    // fi
+    For,   // for
+    If,    // if
+    In,    // in
+    Then,  // then
+    Until, // until
+    While, // while
+
     // Additional reserved words (optional in POSIX)
-    Function,              // function
-    Select,                // select
-    Time,                  // time
-    
+    Function, // function
+    Select,   // select
+    Time,     // time
+
     // ============================================
     // Brackets and Special Characters
     // ============================================
-    LeftParen,             // (
-    RightParen,            // )
-    LeftBrace,             // {
-    RightBrace,            // }
-    
+    LeftParen,  // (
+    RightParen, // )
+    LeftBrace,  // {
+    RightBrace, // }
+
     // ============================================
     // Parameter Expansion and Command Substitution
     // ============================================
-    Dollar,                // $
-    DollarLeftParen,       // $(
-    DollarLeftBrace,       // ${
-    Backtick,              // `
-    
+    Dollar,          // $
+    DollarLeftParen, // $(
+    DollarLeftBrace, // ${
+    Backtick,        // `
+
     // ============================================
     // Pattern Matching (for case statements)
     // ============================================
-    Pattern(String),       // Pattern in case statement
-    
+    Pattern(String), // Pattern in case statement
+
     // ============================================
     // Here-document delimiters
     // ============================================
     HereDocDelimiter(String), // <<WORD or <<-WORD delimiter
-    
+
     // ============================================
     // Special Tokens
     // ============================================
@@ -116,103 +116,101 @@ impl Token {
             column,
         }
     }
-    
+
     pub fn is_word(&self) -> bool {
         matches!(self.token_type, TokenType::Word(_))
     }
-    
+
     pub fn is_assignment(&self) -> bool {
         matches!(self.token_type, TokenType::AssignmentWord(_))
     }
-    
+
     pub fn is_name(&self) -> bool {
         matches!(self.token_type, TokenType::Name(_))
     }
-    
+
     pub fn is_control_operator(&self) -> bool {
         match self.token_type {
-            TokenType::Newline |
-            TokenType::Semicolon |
-            TokenType::Ampersand |
-            TokenType::Pipe |
-            TokenType::DSemi => true,
+            TokenType::Newline
+            | TokenType::Semicolon
+            | TokenType::Ampersand
+            | TokenType::Pipe
+            | TokenType::DSemi => true,
             _ => false,
         }
     }
-    
+
     pub fn is_and_or_operator(&self) -> bool {
         matches!(self.token_type, TokenType::AndIf | TokenType::OrIf)
     }
-    
+
     pub fn is_redirect_operator(&self) -> bool {
         match self.token_type {
-            TokenType::Less |
-            TokenType::Great |
-            TokenType::DLess |
-            TokenType::DGreat |
-            TokenType::LessAnd |
-            TokenType::GreatAnd |
-            TokenType::LessGreat |
-            TokenType::DLessDash |
-            TokenType::Clobber => true,
+            TokenType::Less
+            | TokenType::Great
+            | TokenType::DLess
+            | TokenType::DGreat
+            | TokenType::LessAnd
+            | TokenType::GreatAnd
+            | TokenType::LessGreat
+            | TokenType::DLessDash
+            | TokenType::Clobber => true,
             _ => false,
         }
     }
-    
+
     pub fn is_reserved_word(&self) -> bool {
         match self.token_type {
-            TokenType::Bang |
-            TokenType::Case |
-            TokenType::Do |
-            TokenType::Done |
-            TokenType::Elif |
-            TokenType::Else |
-            TokenType::Esac |
-            TokenType::Fi |
-            TokenType::For |
-            TokenType::If |
-            TokenType::In |
-            TokenType::Then |
-            TokenType::Until |
-            TokenType::While |
-            TokenType::Function |
-            TokenType::Select |
-            TokenType::Time => true,
+            TokenType::Bang
+            | TokenType::Case
+            | TokenType::Do
+            | TokenType::Done
+            | TokenType::Elif
+            | TokenType::Else
+            | TokenType::Esac
+            | TokenType::Fi
+            | TokenType::For
+            | TokenType::If
+            | TokenType::In
+            | TokenType::Then
+            | TokenType::Until
+            | TokenType::While
+            | TokenType::Function
+            | TokenType::Select
+            | TokenType::Time => true,
             _ => false,
         }
     }
-    
+
     pub fn is_number(&self) -> bool {
         matches!(self.token_type, TokenType::Number(_))
     }
-    
+
     pub fn is_here_doc_delimiter(&self) -> bool {
         matches!(self.token_type, TokenType::HereDocDelimiter(_))
     }
-    
+
     pub fn is_pattern(&self) -> bool {
         matches!(self.token_type, TokenType::Pattern(_))
     }
-    
+
     pub fn is_dollar_expansion(&self) -> bool {
         match self.token_type {
-            TokenType::Dollar |
-            TokenType::DollarLeftParen |
-            TokenType::DollarLeftBrace => true,
+            TokenType::Dollar | TokenType::DollarLeftParen | TokenType::DollarLeftBrace => true,
             _ => false,
         }
     }
-    
+
     pub fn is_backtick(&self) -> bool {
         matches!(self.token_type, TokenType::Backtick)
     }
-    
+
     pub fn is_bracket(&self) -> bool {
         match self.token_type {
-            TokenType::LeftParen |
-            TokenType::RightParen |
-            TokenType::LeftBrace |
-            TokenType::RightBrace => true,
+            TokenType::LeftParen
+            | TokenType::RightParen
+            | TokenType::LeftBrace
+            | TokenType::RightBrace => true,
             _ => false,
         }
     }
@@ -276,7 +274,11 @@ impl fmt::Display for TokenType {
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Token({} at {}:{})", self.token_type, self.line, self.column)
+        write!(
+            f,
+            "Token({} at {}:{})",
+            self.token_type, self.line, self.column
+        )
     }
 }
 
@@ -285,15 +287,15 @@ pub fn is_valid_var_name(name: &str) -> bool {
     if name.is_empty() {
         return false;
     }
-    
+
     let mut chars = name.chars();
-    
+
     // First character must be letter or underscore
     let first = chars.next().unwrap();
     if !first.is_ascii_alphabetic() && first != '_' {
         return false;
     }
-    
+
     // Remaining characters must be alphanumeric or underscore
     chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
@@ -301,9 +303,8 @@ pub fn is_valid_var_name(name: &str) -> bool {
 /// Check if a string is a reserved word
 pub fn is_reserved_word(word: &str) -> bool {
     match word {
-        "!" | "case" | "do" | "done" | "elif" | "else" | "esac" | "fi" |
-        "for" | "if" | "in" | "then" | "until" | "while" | "function" |
-        "select" | "time" => true,
+        "!" | "case" | "do" | "done" | "elif" | "else" | "esac" | "fi" | "for" | "if" | "in"
+        | "then" | "until" | "while" | "function" | "select" | "time" => true,
         _ => false,
     }
 }

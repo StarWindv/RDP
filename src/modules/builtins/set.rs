@@ -12,16 +12,16 @@ impl BuiltinCommand for Set {
     fn name(&self) -> &'static str {
         "set"
     }
-    
+
     fn execute(&self, args: &[String], env: &mut ShellEnv) -> i32 {
         let mut options = get_options();
-        
+
         if args.is_empty() {
             // Print all variables and options
             println!("Current shell options:");
             println!("  Short options: {}", options.format_options());
             println!();
-            
+
             println!("  Long options:");
             for opt in &[
                 ShellOption::AllExport,
@@ -36,27 +36,33 @@ impl BuiltinCommand for Set {
                 ShellOption::Posix,
                 ShellOption::Vi,
             ] {
-                let status = if options.is_enabled(*opt) { "on" } else { "off" };
-                println!("    {:20} {} ({})", 
-                    format!("{}", opt.long_name()), 
-                    status, 
-                    opt.description());
+                let status = if options.is_enabled(*opt) {
+                    "on"
+                } else {
+                    "off"
+                };
+                println!(
+                    "    {:20} {} ({})",
+                    format!("{}", opt.long_name()),
+                    status,
+                    opt.description()
+                );
             }
             println!();
-            
+
             println!("Positional parameters:");
             for (i, param) in options.get_positional_params().iter().enumerate() {
                 println!("  ${} = '{}'", i + 1, param);
             }
             println!();
-            
+
             println!("Environment variables:");
             for (key, value) in &env.vars {
                 println!("  {}='{}'", key, value);
             }
             return 0;
         }
-        
+
         // Parse options
         match options.apply_options(&args) {
             Ok(consumed) => {

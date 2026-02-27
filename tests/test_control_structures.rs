@@ -4,14 +4,14 @@
 mod control_structure_tests {
     use rs_dash_pro::modules::lexer::Lexer;
     use rs_dash_pro::modules::parser::Parser;
-    use rs_dash_pro::modules::ssa_ir_generator::SsaIrGenerator;
     use rs_dash_pro::modules::ssa_executor::SsaExecutor;
+    use rs_dash_pro::modules::ssa_ir_generator::SsaIrGenerator;
 
     fn execute(input: &str) -> i32 {
         // Lexical analysis
         let lexer = Lexer::new(input);
         let _tokens: Vec<_> = lexer.collect();
-        
+
         // Parsing
         let mut parser = Parser::new(input);
         let ast = match parser.parse() {
@@ -21,11 +21,11 @@ mod control_structure_tests {
                 return 1;
             }
         };
-        
+
         // SSA IR generation
         let mut generator = SsaIrGenerator::new();
         let ssa_func = generator.generate(ast);
-        
+
         // Execution
         let mut executor = SsaExecutor::new();
         executor.execute_function(&ssa_func)
@@ -61,7 +61,10 @@ mod control_structure_tests {
         // if false; then exit 1; elif true; then exit 0; else exit 2; fi
         let input = "if false; then exit 1; elif true; then exit 0; else exit 2; fi";
         let status = execute(input);
-        assert_eq!(status, 0, "if-elif-else should execute elif when condition true");
+        assert_eq!(
+            status, 0,
+            "if-elif-else should execute elif when condition true"
+        );
     }
 
     #[test]

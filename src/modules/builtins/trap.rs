@@ -11,14 +11,14 @@ impl BuiltinCommand for Trap {
     fn name(&self) -> &'static str {
         "trap"
     }
-    
+
     fn execute(&self, args: &[String], env: &mut ShellEnv) -> i32 {
         if args.is_empty() {
             // Print current traps
             println!("trap: no traps set");
             return 0;
         }
-        
+
         // Parse trap command
         // Format: trap [action] signal...
         let action = if args[0] == "-" {
@@ -33,13 +33,13 @@ impl BuiltinCommand for Trap {
         } else {
             args[0].clone()
         };
-        
+
         let signals = if args[0] == "-" || args[0] == "--" {
             &args[1..]
         } else {
             &args[1..]
         };
-        
+
         if signals.is_empty() {
             // No signals specified, use default
             env.set_var("__trap_EXIT".to_string(), action);
@@ -48,7 +48,7 @@ impl BuiltinCommand for Trap {
                 env.set_var(format!("__trap_{}", sig), action.clone());
             }
         }
-        
+
         0
     }
 }

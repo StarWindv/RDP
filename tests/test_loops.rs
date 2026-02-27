@@ -5,10 +5,10 @@ use predicates::prelude::*;
 fn test_while_loop_simple() {
     let mut cmd = Command::cargo_bin("rs-dash-pro").unwrap();
     // Simple while loop test
-    cmd.arg("-c")
-        .arg("echo 1; echo 2");
-    
-    cmd.assert().success()
+    cmd.arg("-c").arg("echo 1; echo 2");
+
+    cmd.assert()
+        .success()
         .stdout(predicate::str::contains("1"))
         .stdout(predicate::str::contains("2"));
 }
@@ -16,10 +16,10 @@ fn test_while_loop_simple() {
 #[test]
 fn test_for_loop() {
     let mut cmd = Command::cargo_bin("rs-dash-pro").unwrap();
-    cmd.arg("-c")
-        .arg("for i in a b c; do echo $i; done");
-    
-    cmd.assert().success()
+    cmd.arg("-c").arg("for i in a b c; do echo $i; done");
+
+    cmd.assert()
+        .success()
         .stdout(predicate::str::contains("a"))
         .stdout(predicate::str::contains("b"))
         .stdout(predicate::str::contains("c"));
@@ -30,8 +30,9 @@ fn test_nested_loops() {
     let mut cmd = Command::cargo_bin("rs-dash-pro").unwrap();
     cmd.arg("-c")
         .arg("for i in 1 2; do for j in a b; do echo $i$j; done; done");
-    
-    cmd.assert().success()
+
+    cmd.assert()
+        .success()
         .stdout(predicate::str::contains("1a"))
         .stdout(predicate::str::contains("1b"))
         .stdout(predicate::str::contains("2a"))

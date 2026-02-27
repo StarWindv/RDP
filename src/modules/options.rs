@@ -7,24 +7,24 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ShellOption {
     // Single-letter options (set -o)
-    ErrExit,      // -e: Exit immediately if a command exits with non-zero status
-    NoUnset,      // -u: Treat unset variables as an error
-    XTrace,       // -x: Print commands and their arguments as they are executed
-    NoExec,       // -n: Read commands but do not execute them
-    Verbose,      // -v: Print shell input lines as they are read
-    
+    ErrExit, // -e: Exit immediately if a command exits with non-zero status
+    NoUnset, // -u: Treat unset variables as an error
+    XTrace,  // -x: Print commands and their arguments as they are executed
+    NoExec,  // -n: Read commands but do not execute them
+    Verbose, // -v: Print shell input lines as they are read
+
     // Long options (set -o option)
-    AllExport,    // allexport: Automatically export all defined variables
-    IgnoreEof,    // ignoreeof: Don't exit on EOF (require 'exit' or Ctrl+D)
-    Interactive,  // interactive: Shell is interactive
-    Monitor,      // monitor: Enable job control
-    NoClobber,    // noclobber: Prevent overwriting existing files with >
-    NoGlob,       // noglob: Disable pathname expansion
-    NoLog,        // nolog: Don't save function definitions in history
-    Notify,       // notify: Report job termination status immediately
-    Physical,     // physical: Use physical directory structure for cd/pwd
-    Posix,        // posix: Change behavior to match POSIX standard
-    Vi,           // vi: Use vi-style command line editing
+    AllExport,   // allexport: Automatically export all defined variables
+    IgnoreEof,   // ignoreeof: Don't exit on EOF (require 'exit' or Ctrl+D)
+    Interactive, // interactive: Shell is interactive
+    Monitor,     // monitor: Enable job control
+    NoClobber,   // noclobber: Prevent overwriting existing files with >
+    NoGlob,      // noglob: Disable pathname expansion
+    NoLog,       // nolog: Don't save function definitions in history
+    Notify,      // notify: Report job termination status immediately
+    Physical,    // physical: Use physical directory structure for cd/pwd
+    Posix,       // posix: Change behavior to match POSIX standard
+    Vi,          // vi: Use vi-style command line editing
 }
 
 impl ShellOption {
@@ -39,7 +39,7 @@ impl ShellOption {
             _ => None,
         }
     }
-    
+
     /// Get the long option name
     pub fn long_name(&self) -> &'static str {
         match self {
@@ -61,16 +61,16 @@ impl ShellOption {
             ShellOption::Vi => "vi",
         }
     }
-    
+
     /// Get the default value for the option
     pub fn default_value(&self) -> bool {
         match self {
-            ShellOption::Interactive => true,  // Default to interactive in interactive shells
-            ShellOption::Monitor => true,      // Default to job control enabled
+            ShellOption::Interactive => true, // Default to interactive in interactive shells
+            ShellOption::Monitor => true,     // Default to job control enabled
             _ => false,
         }
     }
-    
+
     /// Get description of the option
     pub fn description(&self) -> &'static str {
         match self {
@@ -92,7 +92,7 @@ impl ShellOption {
             ShellOption::Vi => "Use vi-style command line editing",
         }
     }
-    
+
     /// Parse a short option character
     pub fn from_short(ch: char) -> Option<Self> {
         match ch {
@@ -104,7 +104,7 @@ impl ShellOption {
             _ => None,
         }
     }
-    
+
     /// Parse a long option name
     pub fn from_long(name: &str) -> Option<Self> {
         match name {
@@ -140,7 +140,7 @@ impl ShellOptions {
     /// Create new shell options with defaults
     pub fn new() -> Self {
         let mut options = HashMap::new();
-        
+
         // Set default values
         for opt in &[
             ShellOption::ErrExit,
@@ -162,23 +162,23 @@ impl ShellOptions {
         ] {
             options.insert(*opt, opt.default_value());
         }
-        
+
         Self {
             options,
             positional_params: Vec::new(),
         }
     }
-    
+
     /// Check if an option is enabled
     pub fn is_enabled(&self, option: ShellOption) -> bool {
         *self.options.get(&option).unwrap_or(&false)
     }
-    
+
     /// Set an option
     pub fn set_option(&mut self, option: ShellOption, enabled: bool) {
         self.options.insert(option, enabled);
     }
-    
+
     /// Toggle an option
     pub fn toggle_option(&mut self, option: ShellOption) -> bool {
         let current = self.is_enabled(option);
@@ -186,38 +186,38 @@ impl ShellOptions {
         self.set_option(option, new);
         new
     }
-    
+
     /// Set positional parameters
     pub fn set_positional_params(&mut self, params: Vec<String>) {
         self.positional_params = params;
     }
-    
+
     /// Get positional parameters
     pub fn get_positional_params(&self) -> &[String] {
         &self.positional_params
     }
-    
+
     /// Shift positional parameters
     pub fn shift_positional_params(&mut self, n: usize) -> Vec<String> {
         if n == 0 || self.positional_params.is_empty() {
             return Vec::new();
         }
-        
+
         let shift_count = std::cmp::min(n, self.positional_params.len());
         let shifted: Vec<String> = self.positional_params.drain(0..shift_count).collect();
-        
+
         // If all params were shifted, add an empty string
         if self.positional_params.is_empty() {
             self.positional_params.push(String::new());
         }
-        
+
         shifted
     }
-    
+
     /// Get all options as a string for display
     pub fn format_options(&self) -> String {
         let mut result = String::new();
-        
+
         // Format short options
         for (opt, enabled) in &self.options {
             if let Some(ch) = opt.short_name() {
@@ -226,23 +226,23 @@ impl ShellOptions {
                 }
             }
         }
-        
+
         result
     }
-    
+
     /// Parse and apply options from command line arguments
     pub fn apply_options(&mut self, args: &[String]) -> Result<usize, String> {
         let mut i = 0;
-        
+
         while i < args.len() {
             let arg = &args[i];
-            
+
             if arg == "--" {
                 // End of options
                 i += 1;
                 break;
             }
-            
+
             if arg.starts_with('-') && !arg.starts_with("--") && arg != "-" && arg != "-o" {
                 // Handle short options: -e, -u, -x, etc.
                 for ch in arg[1..].chars() {
@@ -272,7 +272,7 @@ impl ShellOptions {
                 if i + 1 >= args.len() {
                     return Err("set: -o requires an argument".to_string());
                 }
-                
+
                 let opt_name = &args[i + 1];
                 match ShellOption::from_long(opt_name) {
                     Some(opt) => {
@@ -282,14 +282,14 @@ impl ShellOptions {
                         return Err(format!("set: invalid option name: {}", opt_name));
                     }
                 }
-                
+
                 i += 1; // Skip the option name
             } else if arg == "+o" {
                 // Clear long option: +o option_name
                 if i + 1 >= args.len() {
                     return Err("set: +o requires an argument".to_string());
                 }
-                
+
                 let opt_name = &args[i + 1];
                 match ShellOption::from_long(opt_name) {
                     Some(opt) => {
@@ -299,19 +299,19 @@ impl ShellOptions {
                         return Err(format!("set: invalid option name: {}", opt_name));
                     }
                 }
-                
+
                 i += 1; // Skip the option name
             } else {
                 // Not an option, start of positional parameters
                 break;
             }
-            
+
             i += 1;
         }
-        
+
         Ok(i)
     }
-    
+
     /// Create a child options instance (for subshells)
     pub fn create_child(&self) -> Self {
         self.clone()
@@ -320,7 +320,7 @@ impl ShellOptions {
 
 /// Global shell options instance
 lazy_static::lazy_static! {
-    static ref SHELL_OPTIONS: std::sync::Mutex<ShellOptions> = 
+    static ref SHELL_OPTIONS: std::sync::Mutex<ShellOptions> =
         std::sync::Mutex::new(ShellOptions::new());
 }
 

@@ -11,7 +11,7 @@ impl Optimizer {
     pub fn new() -> Self {
         Self
     }
-    
+
     /// Optimize a function (currently no optimizations)
     pub fn optimize(&self, func: Function) -> Function {
         // NOP optimizer - just return the function as-is

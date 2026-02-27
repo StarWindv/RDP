@@ -5,13 +5,16 @@ pub mod modules;
 
 // Re-export commonly used types from modules
 pub use modules::{
-    tokens::{Token, TokenType},
-    lexer::Lexer,
-    ast::{AstNode, AndOrOperator, CommandSeparator, ParseError, RedirectType, CaseClause, ParameterOperation},
-    parser::Parser,
+    ast::{
+        AndOrOperator, AstNode, CaseClause, CommandSeparator, ParameterOperation, ParseError,
+        RedirectType,
+    },
+    builtins::{BuiltinRegistry, Builtins},
     env::ShellEnv,
-    ssa_ir::{Function, ValueId, BasicBlockId, ValueType, Instruction, CmpOp, IrBuilder},
-    ssa_ir_generator::SsaIrGenerator,
+    lexer::Lexer,
+    parser::Parser,
     ssa_executor::SsaExecutor,
-    builtins::{Builtins, BuiltinRegistry},
+    ssa_ir::{BasicBlockId, CmpOp, Function, Instruction, IrBuilder, ValueId, ValueType},
+    ssa_ir_generator::SsaIrGenerator,
+    tokens::{Token, TokenType},
 };

@@ -1,23 +1,16 @@
 /// SSA IR Executor - executes SSA IR programs with proper shell semantics.
 /// This module implements a virtual machine that executes SSA IR instructions,
 /// handling process management, I/O redirection, variable expansion, and more.
-
 use std::collections::HashMap;
-use std::process::{Command, Child, Stdio};
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::process::{Child, Command};
 
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 
-use crate::modules::ssa_ir::{
-    Function, BasicBlockId, ValueId, ValueType,
-    Instruction, CmpOp, ParamExpandOp,
-};
 use crate::modules::builtins::Builtins;
 use crate::modules::env::ShellEnv;
+use crate::modules::ssa_ir::{BasicBlockId, CmpOp, Function, Instruction, ValueId, ValueType};
 use crate::modules::variables::{get_variable_system, VarAttribute};
-use crate::modules::options::errexit_enabled;
-use crate::modules::job_control_enhanced::{get_enhanced_job_control, ShellSignal};
 
 /// SSA IR Executor - executes SSA IR functions
 pub struct SsaExecutor {
@@ -30,9 +23,9 @@ pub struct SsaExecutor {
     program_counter: usize,
     call_stack: Vec<(String, BasicBlockId, usize)>, // (function, block, pc)
     predecessor_blocks: HashMap<BasicBlockId, BasicBlockId>, // block -> predecessor
-    processes: HashMap<u32, Child>, // Track child processes by PID
-    foreground_job: Option<usize>, // Current foreground job ID
-    signal_handlers: HashMap<i32, BasicBlockId>, // Signal number -> handler block
+    processes: HashMap<u32, Child>,                 // Track child processes by PID
+    foreground_job: Option<usize>,                  // Current foreground job ID
+    signal_handlers: HashMap<i32, BasicBlockId>,    // Signal number -> handler block
 }
 
 /// Executable value representation
@@ -62,7 +55,7 @@ impl ExecValue {
             ExecValue::Void => ValueType::Void,
         }
     }
-    
+
     /// Convert to string representation
     fn as_string(&self) -> String {
         match self {
@@ -76,13 +69,19 @@ impl ExecValue {
             ExecValue::Void => String::new(),
         }
     }
-    
+
     /// Convert to integer representation
     fn as_integer(&self) -> i32 {
         match self {
             ExecValue::String(s) => s.parse().unwrap_or(0),
             ExecValue::Integer(i) => *i,
-            ExecValue::Boolean(b) => if *b { 1 } else { 0 },
+            ExecValue::Boolean(b) => {
+                if *b {
+                    1
+                } else {
+                    0
+                }
+            }
             ExecValue::FileDescriptor(fd) => *fd,
             ExecValue::ProcessId(pid) => *pid as i32,
             ExecValue::ExitStatus(status) => *status,
@@ -90,7 +89,7 @@ impl ExecValue {
             ExecValue::Void => 0,
         }
     }
-    
+
     /// Convert to boolean representation
     fn as_boolean(&self) -> bool {
         match self {
@@ -104,7 +103,7 @@ impl ExecValue {
             ExecValue::Void => false,
         }
     }
-    
+
     /// Convert to file descriptor (if applicable)
     fn as_fd(&self) -> Option<i32> {
         match self {
@@ -112,7 +111,7 @@ impl ExecValue {
             _ => None,
         }
     }
-    
+
     /// Convert to process ID (if applicable)
     fn as_pid(&self) -> Option<u32> {
         match self {
@@ -120,7 +119,7 @@ impl ExecValue {
             _ => None,
         }
     }
-    
+
     /// Convert to exit status (if applicable)
     fn as_status(&self) -> Option<i32> {
         match self {
@@ -128,7 +127,7 @@ impl ExecValue {
             _ => None,
         }
     }
-    
+
     /// Convert to array (if applicable)
     fn as_array(&self) -> Option<Vec<String>> {
         match self {
@@ -156,36 +155,36 @@ impl SsaExecutor {
             signal_handlers: HashMap::new(),
         }
     }
-    
+
     /// Execute a function
     pub fn execute_function(&mut self, func: &Function) -> i32 {
         // Store function
         self.functions.insert(func.name.clone(), func.clone());
-        
+
         // Set up execution context
         self.current_function = Some(func.name.clone());
         self.current_block = Some(func.entry_block);
         self.program_counter = 0;
         self.call_stack.clear();
         self.predecessor_blocks.clear();
-        
+
         // Execute
         let result = self.execute_block(func.entry_block, func);
-        
+
         // Clean up
         self.current_function = None;
         self.current_block = None;
         self.predecessor_blocks.clear();
-        
+
         result.as_status().unwrap_or(0)
     }
-    
+
     /// Execute a basic block
     fn execute_block(&mut self, block_id: BasicBlockId, func: &Function) -> ExecValue {
         let block = func.get_block(block_id).expect("Block should exist");
         self.current_block = Some(block_id);
         self.program_counter = 0;
-        
+
         // First, execute Phi nodes if we have a predecessor
         let pred_block = self.predecessor_blocks.get(&block_id).cloned();
         if let Some(pred_block) = pred_block {
@@ -199,7 +198,7 @@ impl SsaExecutor {
                             break;
                         }
                     }
-                    
+
                     // Set the phi result value
                     if let Some(value) = phi_value {
                         self.set_value(*result, value.clone());
@@ -213,7 +212,7 @@ impl SsaExecutor {
                 }
             }
         }
-        
+
         // Execute remaining instructions
         for instr in &block.instructions {
             // Skip Phi nodes (already handled)
@@ -221,9 +220,9 @@ impl SsaExecutor {
                 self.program_counter += 1;
                 continue;
             }
-            
+
             let _result = self.execute_instruction(instr, func);
-            
+
             // Check for control flow instructions
             match instr {
                 Instruction::Jump(target) => {
@@ -248,32 +247,32 @@ impl SsaExecutor {
                 }
                 _ => {}
             }
-            
+
             self.program_counter += 1;
         }
-        
+
         // If we reach the end of the block without a terminator,
         // it's an error (blocks should end with a terminator)
         ExecValue::ExitStatus(1)
     }
-    
+
     /// Execute a single instruction
     fn execute_instruction(&mut self, instr: &Instruction, _func: &Function) -> ExecValue {
         match instr {
             // Control flow (handled in execute_block)
-            Instruction::Jump(_) |
-            Instruction::Branch(_, _, _) |
-            Instruction::Return(_) |
-            Instruction::Break(_) |
-            Instruction::Continue(_) => ExecValue::Void,
-            
+            Instruction::Jump(_)
+            | Instruction::Branch(_, _, _)
+            | Instruction::Return(_)
+            | Instruction::Break(_)
+            | Instruction::Continue(_) => ExecValue::Void,
+
             // Variable operations
             Instruction::AllocVar(_name, result) => {
                 let value = ExecValue::String(String::new());
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::Store(var, value) => {
                 let val = self.get_value(*value);
                 // In real shell, we'd store in environment
@@ -281,28 +280,29 @@ impl SsaExecutor {
                 self.set_value(*var, val.clone());
                 ExecValue::Void
             }
-            
+
             Instruction::Load(var, result) => {
                 let val = self.get_value(*var);
                 self.set_value(*result, val.clone());
                 val
             }
-            
+
             // Command execution
             Instruction::CallBuiltin(name, args, result) => {
-                let arg_strings: Vec<String> = args.iter()
+                let arg_strings: Vec<String> = args
+                    .iter()
                     .map(|arg| {
                         let arg_val = self.get_value(*arg);
                         // Arguments should already be expanded at SSA IR generation stage
                         arg_val.as_string()
                     })
                     .collect();
-                
+
                 let status = self.builtins.execute(name, &arg_strings, &mut self.env);
-                
+
                 // Update exit status in environment
                 self.env.exit_status = status;
-                
+
                 // Check for errexit option
                 if status != 0 && crate::modules::options::errexit_enabled() {
                     // errexit is enabled and command failed
@@ -310,32 +310,33 @@ impl SsaExecutor {
                     // For now, just return the error status
                     // In a full implementation, we would need to propagate this up
                 }
-                
+
                 let value = ExecValue::ExitStatus(status);
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::CallExternal(cmd, args, result) => {
                 let cmd_str = cmd.clone();
-                let arg_strings: Vec<String> = args.iter()
+                let arg_strings: Vec<String> = args
+                    .iter()
                     .map(|arg| {
                         let arg_val = self.get_value(*arg);
                         // Arguments should already be expanded at SSA IR generation stage
                         arg_val.as_string()
                     })
                     .collect();
-                
+
                 // Check if it's a built-in command
                 let status = if self.builtins.is_builtin(&cmd_str) {
                     self.builtins.execute(&cmd_str, &arg_strings, &mut self.env)
                 } else {
                     self.execute_external_command(&cmd_str, &arg_strings)
                 };
-                
+
                 // Update exit status in environment
                 self.env.exit_status = status;
-                
+
                 // Check for errexit option
                 if status != 0 && crate::modules::options::errexit_enabled() {
                     // errexit is enabled and command failed
@@ -343,12 +344,12 @@ impl SsaExecutor {
                     // For now, just return the error status
                     // In a full implementation, we would need to propagate this up
                 }
-                
+
                 let value = ExecValue::ExitStatus(status);
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             // Process operations
             Instruction::Fork(result) => {
                 // Real fork implementation
@@ -361,12 +362,12 @@ impl SsaExecutor {
                         return value;
                     }
                 };
-                
+
                 let value = ExecValue::ProcessId(pid);
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::Exec(pid, cmd, args) => {
                 // Execute command in forked process
                 let pid_val = self.get_value(*pid).as_pid();
@@ -374,10 +375,11 @@ impl SsaExecutor {
                     if pid == 0 {
                         // Child process - execute command
                         let cmd_str = cmd.clone();
-                        let arg_strings: Vec<String> = args.iter()
+                        let arg_strings: Vec<String> = args
+                            .iter()
                             .map(|arg| self.get_value(*arg).as_string())
                             .collect();
-                        
+
                         // Execute command
                         let status = self.execute_external_command_in_child(&cmd_str, &arg_strings);
                         return ExecValue::ExitStatus(status);
@@ -388,7 +390,7 @@ impl SsaExecutor {
                 }
                 ExecValue::ExitStatus(1)
             }
-            
+
             Instruction::Wait(pid, result) => {
                 let pid_val = self.get_value(*pid).as_pid();
                 let status = if let Some(pid) = pid_val {
@@ -396,17 +398,17 @@ impl SsaExecutor {
                 } else {
                     1 // Error
                 };
-                
+
                 let value = ExecValue::ExitStatus(status);
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::Exit(status) => {
                 let status_val = self.get_value(*status).as_status();
                 ExecValue::ExitStatus(status_val.unwrap_or(0))
             }
-            
+
             // Pipeline operations
             Instruction::CreatePipe(read_fd, write_fd) => {
                 // TODO: Implement pipe creation
@@ -417,7 +419,7 @@ impl SsaExecutor {
                 self.set_value(*write_fd, write_val.clone());
                 ExecValue::Void
             }
-            
+
             Instruction::DupFd(_old_fd, new_fd, result) => {
                 // TODO: Implement dup
                 // For now, just return new_fd
@@ -425,17 +427,17 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::CloseFd(_fd) => {
                 // TODO: Implement close
                 ExecValue::Void
             }
-            
+
             Instruction::Redirect(_fd, _target, _mode) => {
                 // TODO: Implement redirection
                 ExecValue::Void
             }
-            
+
             // String operations
             Instruction::Concat(str1, str2, result) => {
                 let s1 = self.get_value(*str1).as_string();
@@ -444,31 +446,31 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::Substr(str, start, len, result) => {
                 let s = self.get_value(*str).as_string();
                 let start_idx = self.get_value(*start).as_integer() as usize;
                 let len_val = self.get_value(*len).as_integer() as usize;
-                
+
                 let end_idx = std::cmp::min(start_idx + len_val, s.len());
                 let substr = if start_idx < s.len() {
                     s[start_idx..end_idx].to_string()
                 } else {
                     String::new()
                 };
-                
+
                 let value = ExecValue::String(substr);
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::Length(str, result) => {
                 let s = self.get_value(*str).as_string();
                 let value = ExecValue::Integer(s.len() as i32);
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             // Arithmetic operations
             Instruction::Add(a, b, result) => {
                 let a_val = self.get_value(*a).as_integer();
@@ -477,7 +479,7 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::Sub(a, b, result) => {
                 let a_val = self.get_value(*a).as_integer();
                 let b_val = self.get_value(*b).as_integer();
@@ -485,7 +487,7 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::Mul(a, b, result) => {
                 let a_val = self.get_value(*a).as_integer();
                 let b_val = self.get_value(*b).as_integer();
@@ -493,7 +495,7 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::Div(a, b, result) => {
                 let a_val = self.get_value(*a).as_integer();
                 let b_val = self.get_value(*b).as_integer();
@@ -505,7 +507,7 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::Mod(a, b, result) => {
                 let a_val = self.get_value(*a).as_integer();
                 let b_val = self.get_value(*b).as_integer();
@@ -517,7 +519,7 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             // Logical operations
             Instruction::And(a, b, result) => {
                 let a_val = self.get_value(*a).as_boolean();
@@ -526,7 +528,7 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::Or(a, b, result) => {
                 let a_val = self.get_value(*a).as_boolean();
                 let b_val = self.get_value(*b).as_boolean();
@@ -534,19 +536,19 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::Not(a, result) => {
                 let a_val = self.get_value(*a).as_boolean();
                 let value = ExecValue::Boolean(!a_val);
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             // Comparison operations
             Instruction::Cmp(a, b, op, result) => {
                 let a_val = self.get_value(*a).as_integer();
                 let b_val = self.get_value(*b).as_integer();
-                
+
                 let cmp_result = match op {
                     CmpOp::Eq => a_val == b_val,
                     CmpOp::Ne => a_val != b_val,
@@ -555,38 +557,38 @@ impl SsaExecutor {
                     CmpOp::Gt => a_val > b_val,
                     CmpOp::Ge => a_val >= b_val,
                 };
-                
+
                 let value = ExecValue::Boolean(cmp_result);
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             // Constants
             Instruction::ConstString(val, result) => {
                 let value = ExecValue::String(val.clone());
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::ConstInt(val, result) => {
                 let value = ExecValue::Integer(*val);
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::ConstBool(val, result) => {
                 let value = ExecValue::Boolean(*val);
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             // Phi function
             Instruction::Phi(_pairs, _result) => {
                 // Phi functions are handled during block execution
                 // We should never execute them directly
                 ExecValue::Void
             }
-            
+
             // Special operations
             Instruction::Nop => ExecValue::Void,
             Instruction::Error(msg, token) => {
@@ -598,39 +600,42 @@ impl SsaExecutor {
                 println!("DEBUG: {} = {:?}", value, val);
                 ExecValue::Void
             }
-            
+
             // Function call operations
             Instruction::CallFunction(func_name, args, result) => {
                 // Get function name
                 let func_name_val = func_name.clone();
-                
+
                 // Check if it's a built-in function
                 if self.builtins.is_builtin(&func_name_val) {
                     // Execute as builtin
-                    let arg_strings: Vec<String> = args.iter()
+                    let arg_strings: Vec<String> = args
+                        .iter()
                         .map(|arg| self.get_value(*arg).as_string())
                         .collect();
-                    
-                    let status = self.builtins.execute(&func_name_val, &arg_strings, &mut self.env);
+
+                    let status = self
+                        .builtins
+                        .execute(&func_name_val, &arg_strings, &mut self.env);
                     let value = ExecValue::ExitStatus(status);
                     self.set_value(*result, value.clone());
                     return value;
                 }
-                
+
                 // Look up user-defined function
                 if let Some(func) = self.functions.get(&func_name_val) {
                     // Clone the function to avoid borrowing issues
                     let func_clone = func.clone();
-                    
+
                     // Enter function scope
                     let mut vs = get_variable_system();
                     vs.enter_scope();
-                    
+
                     // Set positional parameters
                     // $0 is function name
                     vs.set("0".to_string(), func_name_val.clone())
                         .unwrap_or_else(|e| eprintln!("Failed to set $0: {}", e));
-                    
+
                     // Set arguments $1, $2, etc.
                     for (i, arg_id) in args.iter().enumerate() {
                         let arg_val = self.get_value(*arg_id).as_string();
@@ -638,13 +643,14 @@ impl SsaExecutor {
                         vs.set(param_name, arg_val)
                             .unwrap_or_else(|e| eprintln!("Failed to set ${}: {}", i + 1, e));
                     }
-                    
+
                     // Set special parameter $# (number of arguments)
                     vs.set("#".to_string(), args.len().to_string())
                         .unwrap_or_else(|e| eprintln!("Failed to set $#: {}", e));
-                    
+
                     // Set special parameter $* and $@ (all arguments)
-                    let all_args: Vec<String> = args.iter()
+                    let all_args: Vec<String> = args
+                        .iter()
                         .map(|arg_id| self.get_value(*arg_id).as_string())
                         .collect();
                     let all_args_str = all_args.join(" ");
@@ -652,32 +658,34 @@ impl SsaExecutor {
                         .unwrap_or_else(|e| eprintln!("Failed to set $*: {}", e));
                     vs.set("@".to_string(), all_args_str)
                         .unwrap_or_else(|e| eprintln!("Failed to set $@: {}", e));
-                    
+
                     // Save current context
                     let old_function = self.current_function.clone();
                     let old_block = self.current_block;
                     let old_pc = self.program_counter;
                     let old_stack = self.call_stack.clone();
-                    
+
                     // Push return address onto call stack
                     if let Some(current_func) = &old_function {
                         if let Some(current_block) = old_block {
-                            self.call_stack.push((current_func.clone(), current_block, old_pc));
+                            self.call_stack
+                                .push((current_func.clone(), current_block, old_pc));
                         }
                     }
-                    
+
                     // Execute function
                     let result_value = self.execute_block(func_clone.entry_block, &func_clone);
-                    
+
                     // Exit function scope
-                    vs.exit_scope().unwrap_or_else(|e| eprintln!("Failed to exit function scope: {}", e));
-                    
+                    vs.exit_scope()
+                        .unwrap_or_else(|e| eprintln!("Failed to exit function scope: {}", e));
+
                     // Restore context
                     self.current_function = old_function;
                     self.current_block = old_block;
                     self.program_counter = old_pc;
                     self.call_stack = old_stack;
-                    
+
                     // Set result value
                     self.set_value(*result, result_value.clone());
                     result_value
@@ -689,12 +697,12 @@ impl SsaExecutor {
                     value
                 }
             }
-            
+
             // Export, unset, readonly variable operations
             Instruction::ExportVar(var) => {
                 let var_name = self.get_value(*var).as_string();
                 let vs = get_variable_system();
-                let mut vs_mut = vs;
+                let vs_mut = vs;
                 if let Some(var_data) = vs_mut.get(&var_name) {
                     // We need to clone and modify, then set back
                     let mut new_var = var_data.clone();
@@ -704,7 +712,7 @@ impl SsaExecutor {
                 }
                 ExecValue::Void
             }
-            
+
             Instruction::UnsetVar(var) => {
                 let var_name = self.get_value(*var).as_string();
                 let vs = get_variable_system();
@@ -712,11 +720,11 @@ impl SsaExecutor {
                 let _ = vs_mut.unset(&var_name);
                 ExecValue::Void
             }
-            
+
             Instruction::ReadonlyVar(var) => {
                 let var_name = self.get_value(*var).as_string();
                 let vs = get_variable_system();
-                let mut vs_mut = vs;
+                let vs_mut = vs;
                 if let Some(var_data) = vs_mut.get(&var_name) {
                     // We need to clone and modify, then set back
                     let mut new_var = var_data.clone();
@@ -726,7 +734,7 @@ impl SsaExecutor {
                 }
                 ExecValue::Void
             }
-            
+
             // Kill and trap operations
             Instruction::Kill(pid, signal) => {
                 let pid_val = self.get_value(*pid).as_pid();
@@ -737,15 +745,18 @@ impl SsaExecutor {
                 };
                 ExecValue::ExitStatus(status)
             }
-            
+
             Instruction::Trap(signal, handler) => {
                 let signal_val = self.get_value(*signal).as_integer();
-                println!("Setting trap for signal {} to handler block {}", signal_val, handler.0);
+                println!(
+                    "Setting trap for signal {} to handler block {}",
+                    signal_val, handler.0
+                );
                 // Store the signal handler
                 self.signal_handlers.insert(signal_val, *handler);
                 ExecValue::Void
             }
-            
+
             // Here document
             Instruction::HereDoc(_content, result) => {
                 // TODO: Implement here document
@@ -754,7 +765,7 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             // Pattern matching and glob expansion
             Instruction::PatternMatch(str, pattern, result) => {
                 let s = self.get_value(*str).as_string();
@@ -764,7 +775,7 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::GlobExpand(pattern, result) => {
                 // TODO: Implement glob expansion
                 // For now, just return the pattern as a string
@@ -773,7 +784,7 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             // Bit operations
             Instruction::BitAnd(a, b, result) => {
                 let a_val = self.get_value(*a).as_integer();
@@ -782,7 +793,7 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::BitOr(a, b, result) => {
                 let a_val = self.get_value(*a).as_integer();
                 let b_val = self.get_value(*b).as_integer();
@@ -790,7 +801,7 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::BitXor(a, b, result) => {
                 let a_val = self.get_value(*a).as_integer();
                 let b_val = self.get_value(*b).as_integer();
@@ -798,14 +809,14 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::BitNot(a, result) => {
                 let a_val = self.get_value(*a).as_integer();
                 let value = ExecValue::Integer(!a_val);
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::ShiftLeft(a, b, result) => {
                 let a_val = self.get_value(*a).as_integer();
                 let b_val = self.get_value(*b).as_integer();
@@ -813,7 +824,7 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::ShiftRight(a, b, result) => {
                 let a_val = self.get_value(*a).as_integer();
                 let b_val = self.get_value(*b).as_integer();
@@ -821,14 +832,14 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::Neg(a, result) => {
                 let a_val = self.get_value(*a).as_integer();
                 let value = ExecValue::Integer(-a_val);
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             // Array operations
             Instruction::CreateArray(result) => {
                 // TODO: Implement array
@@ -836,52 +847,50 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::ArraySet(_array, _index, _value) => {
                 // TODO: Implement array set
                 ExecValue::Void
             }
-            
+
             Instruction::ArrayGet(_array, _index, result) => {
                 // TODO: Implement array get
                 let value = ExecValue::String(String::new());
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::ArrayLength(array, result) => {
                 // TODO: Implement array length
                 let value = ExecValue::Integer(0);
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::ArrayKeys(array, result) => {
                 // TODO: Implement array keys
                 let value = ExecValue::String(String::new());
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             Instruction::ConstArray(values, result) => {
                 // TODO: Implement const array
                 let value = ExecValue::String(format!("{:?}", values));
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             // Command substitution
             Instruction::CommandSub(cmd_result, result) => {
                 // TODO: Implement command substitution
                 // For now, just return exit status as string
                 let status = self.get_value(*cmd_result).as_status();
-                let value = ExecValue::String(
-    status.map(|s| s.to_string()).unwrap_or_default()
-); 
+                let value = ExecValue::String(status.map(|s| s.to_string()).unwrap_or_default());
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             // Parameter expansion
             Instruction::ParamExpand(param, op, result) => {
                 let param_val = self.get_value(*param);
@@ -891,7 +900,7 @@ impl SsaExecutor {
                 self.set_value(*result, value.clone());
                 value
             }
-            
+
             // Handle any other instructions not explicitly matched
             _ => {
                 eprintln!("Warning: Unimplemented instruction: {:?}", instr);
@@ -899,7 +908,7 @@ impl SsaExecutor {
             }
         }
     }
-    
+
     /// Execute an external command
     fn execute_external_command(&self, cmd: &str, args: &[String]) -> i32 {
         // Find command in PATH
@@ -910,26 +919,26 @@ impl SsaExecutor {
                 return 127;
             }
         };
-        
+
         // Prepare command
         let mut command = Command::new(&full_path);
         for arg in args {
             command.arg(arg);
         }
         command.current_dir(&self.env.current_dir);
-        
+
         // Set environment variables from VariableSystem
         let vs = get_variable_system();
         let exported_vars = vs.get_exported_vars();
         for (key, value) in &exported_vars {
             command.env(key, value);
         }
-        
+
         // Also set from env (for backward compatibility)
         for (key, value) in &self.env.vars {
             command.env(key, value);
         }
-        
+
         // Execute command
         match command.status() {
             Ok(status) => {
@@ -946,11 +955,15 @@ impl SsaExecutor {
             }
         }
     }
-    
+
     /// Execute parameter expansion
-    fn execute_param_expand(&self, param: &str, op: &crate::modules::ssa_ir::ParamExpandOp) -> String {
+    fn execute_param_expand(
+        &self,
+        param: &str,
+        op: &crate::modules::ssa_ir::ParamExpandOp,
+    ) -> String {
         let vs = get_variable_system();
-        
+
         match op {
             crate::modules::ssa_ir::ParamExpandOp::Simple => {
                 // Simple parameter expansion: ${parameter} or $parameter
@@ -1142,38 +1155,41 @@ impl SsaExecutor {
             }
         }
     }
-    
+
     /// Get a value by ID
     fn get_value(&self, id: ValueId) -> ExecValue {
-        self.values.get(&id)
+        self.values
+            .get(&id)
             .cloned()
             .unwrap_or_else(|| ExecValue::Void)
     }
-    
+
     /// Set a value by ID
     fn set_value(&mut self, id: ValueId, value: ExecValue) {
         self.values.insert(id, value);
     }
-    
+
     // ============================================
     // Process Management Methods
     // ============================================
-    
+
     /// Fork a new process
     fn fork_process(&mut self) -> Result<u32, String> {
         #[cfg(unix)]
         {
             use nix::unistd::fork;
             use nix::unistd::ForkResult;
-            
+
             unsafe {
                 match fork() {
                     Ok(ForkResult::Parent { child, .. }) => {
                         let pid = child.as_raw() as u32;
                         // Store child process (we'll get it when we wait)
                         // For now, just store placeholder
-                        self.processes.insert(pid, 
-                            Command::new("true").spawn().map_err(|e| e.to_string())?);
+                        self.processes.insert(
+                            pid,
+                            Command::new("true").spawn().map_err(|e| e.to_string())?,
+                        );
                         Ok(pid)
                     }
                     Ok(ForkResult::Child) => {
@@ -1184,7 +1200,7 @@ impl SsaExecutor {
                 }
             }
         }
-        
+
         #[cfg(not(unix))]
         {
             // On Windows, we can't fork, so we simulate it
@@ -1195,13 +1211,13 @@ impl SsaExecutor {
                 .arg("fork simulation")
                 .spawn()
                 .map_err(|e| e.to_string())?;
-            
+
             let pid = child.id() as u32;
             self.processes.insert(pid, child);
             Ok(pid)
         }
     }
-    
+
     /// Execute external command in child process
     fn execute_external_command_in_child(&self, cmd: &str, args: &[String]) -> i32 {
         // Find command in PATH
@@ -1212,26 +1228,26 @@ impl SsaExecutor {
                 return 127;
             }
         };
-        
+
         // Prepare command
         let mut command = Command::new(&full_path);
         for arg in args {
             command.arg(arg);
         }
         command.current_dir(&self.env.current_dir);
-        
+
         // Set environment variables from VariableSystem
         let vs = get_variable_system();
         let exported_vars = vs.get_exported_vars();
         for (key, value) in &exported_vars {
             command.env(key, value);
         }
-        
+
         // Also set from env (for backward compatibility)
         for (key, value) in &self.env.vars {
             command.env(key, value);
         }
-        
+
         #[cfg(unix)]
         {
             // Use exec to replace current process
@@ -1240,20 +1256,18 @@ impl SsaExecutor {
             eprintln!("exec failed: {}", error);
             std::process::exit(1);
         }
-        
+
         #[cfg(not(unix))]
         {
             // On Windows, we can't exec, so we spawn and exit
             match command.spawn() {
-                Ok(mut child) => {
-                    match child.wait() {
-                        Ok(status) => status.code().unwrap_or(1),
-                        Err(e) => {
-                            eprintln!("wait failed: {}", e);
-                            1
-                        }
+                Ok(mut child) => match child.wait() {
+                    Ok(status) => status.code().unwrap_or(1),
+                    Err(e) => {
+                        eprintln!("wait failed: {}", e);
+                        1
                     }
-                }
+                },
                 Err(e) => {
                     eprintln!("spawn failed: {}", e);
                     1
@@ -1261,14 +1275,12 @@ impl SsaExecutor {
             }
         }
     }
-    
+
     /// Wait for a process to complete
     fn wait_for_process(&mut self, pid: u32) -> i32 {
         if let Some(mut child) = self.processes.remove(&pid) {
             match child.wait() {
-                Ok(status) => {
-                    status.code().unwrap_or(128)
-                }
+                Ok(status) => status.code().unwrap_or(128),
                 Err(e) => {
                     eprintln!("wait failed: {}", e);
                     1
@@ -1279,18 +1291,18 @@ impl SsaExecutor {
             1
         }
     }
-    
+
     // ============================================
     // Signal Handling Methods
     // ============================================
-    
+
     /// Check for pending signals and execute handlers
     fn check_signals(&mut self, func: &Function) -> bool {
         // For now, we don't have actual signal delivery
         // In a real implementation, we would check a signal queue
         false
     }
-    
+
     /// Kill a process
     fn kill_process(&mut self, pid: u32, signal: i32) -> i32 {
         if let Some(child) = self.processes.get_mut(&pid) {
@@ -1298,14 +1310,14 @@ impl SsaExecutor {
             {
                 use nix::sys::signal::{kill, Signal};
                 use nix::unistd::Pid;
-                
+
                 let nix_signal = match signal {
                     2 => Signal::SIGINT,
                     9 => Signal::SIGKILL,
                     15 => Signal::SIGTERM,
                     _ => Signal::SIGTERM,
                 };
-                
+
                 match kill(Pid::from_raw(pid as i32), nix_signal) {
                     Ok(_) => 0,
                     Err(e) => {
@@ -1314,7 +1326,7 @@ impl SsaExecutor {
                     }
                 }
             }
-            
+
             #[cfg(not(unix))]
             {
                 // On Windows, try to kill the process
@@ -1327,4 +1339,3 @@ impl SsaExecutor {
         }
     }
 }
-

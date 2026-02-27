@@ -1,5 +1,5 @@
-use crate::modules::env::ShellEnv;
 use crate::modules::builtins::registry::BuiltinCommand;
+use crate::modules::env::ShellEnv;
 
 pub struct TestCommand;
 
@@ -7,7 +7,7 @@ impl BuiltinCommand for TestCommand {
     fn name(&self) -> &'static str {
         "test"
     }
-    
+
     fn execute(&self, args: &[String], _env: &mut ShellEnv) -> i32 {
         if args.is_empty() {
             return 1; // [ with no args is false
@@ -17,7 +17,7 @@ impl BuiltinCommand for TestCommand {
         // [ $var -lt num ] - less than
         // [ $var -eq num ] - equal
         // [ $var -gt num ] - greater than
-        
+
         if args.len() == 3 {
             let left = &args[0];
             let op = &args[1];
@@ -41,7 +41,11 @@ impl BuiltinCommand for TestCommand {
                 _ => return 1, // Unknown operator
             };
 
-            if result { 0 } else { 1 }
+            if result {
+                0
+            } else {
+                1
+            }
         } else if args.len() == 1 {
             // Single argument: test if string is non-empty
             if args[0].is_empty() {

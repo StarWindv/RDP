@@ -12,7 +12,7 @@ impl BuiltinCommand for Shift {
     fn name(&self) -> &'static str {
         "shift"
     }
-    
+
     fn execute(&self, args: &[String], _env: &mut ShellEnv) -> i32 {
         let n = if args.is_empty() {
             1
@@ -25,15 +25,15 @@ impl BuiltinCommand for Shift {
                 }
             }
         };
-        
+
         let mut options = get_options();
         let shifted = options.shift_positional_params(n);
-        
+
         if shifted.is_empty() && n > 0 {
             eprintln!("shift: can't shift that many");
             return 1;
         }
-        
+
         0
     }
 }

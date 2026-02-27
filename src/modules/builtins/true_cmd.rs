@@ -11,7 +11,7 @@ impl BuiltinCommand for True {
     fn name(&self) -> &'static str {
         "true"
     }
-    
+
     fn execute(&self, _args: &[String], _env: &mut ShellEnv) -> i32 {
         0
     }

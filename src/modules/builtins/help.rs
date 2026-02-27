@@ -11,7 +11,7 @@ impl BuiltinCommand for Help {
     fn name(&self) -> &'static str {
         "help"
     }
-    
+
     fn execute(&self, _args: &[String], _env: &mut ShellEnv) -> i32 {
         println!("rs-dash-pro - A POSIX-compatible shell");
         println!();

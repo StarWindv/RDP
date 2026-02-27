@@ -11,7 +11,7 @@ impl BuiltinCommand for Times {
     fn name(&self) -> &'static str {
         "times"
     }
-    
+
     fn execute(&self, _args: &[String], _env: &mut ShellEnv) -> i32 {
         // TODO: Get actual process times
         // For now, print dummy values

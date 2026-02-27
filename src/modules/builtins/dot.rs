@@ -13,13 +13,13 @@ impl BuiltinCommand for Dot {
     fn name(&self) -> &'static str {
         "."
     }
-    
+
     fn execute(&self, args: &[String], env: &mut ShellEnv) -> i32 {
         if args.is_empty() {
             eprintln!(".: filename argument required");
             return 1;
         }
-        
+
         let filename = &args[0];
         match fs::read_to_string(filename) {
             Ok(content) => {
@@ -31,7 +31,7 @@ impl BuiltinCommand for Dot {
                     if line.is_empty() || line.starts_with('#') {
                         continue;
                     }
-                    
+
                     // Simple handling of export commands
                     if line.starts_with("export ") {
                         let export_line = &line[7..]; // Remove "export "
@@ -49,7 +49,7 @@ impl BuiltinCommand for Dot {
                         println!("{}", expanded);
                     }
                 }
-                
+
                 last_status
             }
             Err(e) => {

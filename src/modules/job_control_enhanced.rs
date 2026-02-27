@@ -60,13 +60,13 @@ pub enum JobStatus {
 #[derive(Debug)]
 pub struct Job {
     pub id: usize,
-    pub pgid: i32,           // Process group ID
+    pub pgid: i32, // Process group ID
     pub command: String,
     pub status: JobStatus,
     pub foreground: bool,
     pub start_time: SystemTime,
     pub children: Vec<Child>,
-    pub notified: bool,      // Whether user has been notified about status change
+    pub notified: bool, // Whether user has been notified about status change
 }
 
 /// Enhanced job control system
@@ -75,8 +75,8 @@ pub struct EnhancedJobControl {
     jobs: HashMap<usize, Job>,
     next_job_id: usize,
     current_foreground_job: Option<usize>,
-    shell_pgid: i32,         // Shell's own process group
-    terminal_owner: bool,    // Whether shell owns the terminal
+    shell_pgid: i32,      // Shell's own process group
+    terminal_owner: bool, // Whether shell owns the terminal
 }
 
 impl EnhancedJobControl {
@@ -86,7 +86,7 @@ impl EnhancedJobControl {
         let shell_pgid = unistd::getpgrp().as_raw();
         #[cfg(not(unix))]
         let shell_pgid = 0;
-        
+
         Self {
             jobs: HashMap::new(),
             next_job_id: 1,
@@ -95,12 +95,12 @@ impl EnhancedJobControl {
             terminal_owner: true, // Shell starts as terminal owner
         }
     }
-    
+
     /// Add a new job
     pub fn add_job(&mut self, pgid: i32, command: String, foreground: bool, child: Child) -> usize {
         let id = self.next_job_id;
         self.next_job_id += 1;
-        
+
         let job = Job {
             id,
             pgid,
@@ -111,19 +111,19 @@ impl EnhancedJobControl {
             children: vec![child],
             notified: false,
         };
-        
+
         self.jobs.insert(id, job);
-        
+
         if foreground {
             self.current_foreground_job = Some(id);
             // Give terminal to the new foreground process group
             #[cfg(unix)]
             self.give_terminal_to(pgid).ok(); // Ignore errors for now
         }
-        
+
         id
     }
-    
+
     /// Give terminal to a process group
     #[cfg(unix)]
     fn give_terminal_to(&self, pgid: i32) -> Result<(), String> {
@@ -135,7 +135,7 @@ impl EnhancedJobControl {
             Ok(())
         }
     }
-    
+
     /// Take back terminal control
     #[cfg(unix)]
     fn take_terminal_back(&self) -> Result<(), String> {
@@ -147,9 +147,13 @@ impl EnhancedJobControl {
             Ok(())
         }
     }
-    
+
     /// Update job status based on wait status
-    pub fn update_job_status_from_wait(&mut self, job_id: usize, wait_status: i32) -> Result<(), String> {
+    pub fn update_job_status_from_wait(
+        &mut self,
+        job_id: usize,
+        wait_status: i32,
+    ) -> Result<(), String> {
         if let Some(job) = self.jobs.get_mut(&job_id) {
             if wait_status == 0 {
                 job.status = JobStatus::Terminated(0);
@@ -159,80 +163,82 @@ impl EnhancedJobControl {
                 let signal = wait_status - 128;
                 job.status = JobStatus::Signaled(signal);
             }
-            
+
             job.notified = false;
-            
+
             if job.foreground {
                 self.current_foreground_job = None;
                 // Take back terminal control
                 #[cfg(unix)]
                 self.take_terminal_back().ok(); // Ignore errors for now
             }
-            
+
             Ok(())
         } else {
             Err(format!("Job {} not found", job_id))
         }
     }
-    
+
     /// Update job status to stopped
     pub fn update_job_stopped(&mut self, job_id: usize, signal: ShellSignal) -> Result<(), String> {
         if let Some(job) = self.jobs.get_mut(&job_id) {
             job.status = JobStatus::Stopped(signal);
             job.notified = false;
-            
+
             if job.foreground {
                 self.current_foreground_job = None;
                 // Take back terminal control
                 #[cfg(unix)]
                 self.take_terminal_back().ok(); // Ignore errors for now
             }
-            
+
             Ok(())
         } else {
             Err(format!("Job {} not found", job_id))
         }
     }
-    
+
     /// Get job by ID
     pub fn get_job(&self, job_id: usize) -> Option<&Job> {
         self.jobs.get(&job_id)
     }
-    
+
     /// Get job by process group ID
     pub fn get_job_by_pgid(&self, pgid: i32) -> Option<&Job> {
         self.jobs.values().find(|job| job.pgid == pgid)
     }
-    
+
     /// Get job by process group ID (mutable)
     pub fn get_job_by_pgid_mut(&mut self, pgid: i32) -> Option<&mut Job> {
         self.jobs.values_mut().find(|job| job.pgid == pgid)
     }
-    
+
     /// Get all jobs
     pub fn get_all_jobs(&self) -> Vec<&Job> {
         self.jobs.values().collect()
     }
-    
+
     /// Get running jobs
     pub fn get_running_jobs(&self) -> Vec<&Job> {
-        self.jobs.values()
+        self.jobs
+            .values()
             .filter(|job| matches!(job.status, JobStatus::Running))
             .collect()
     }
-    
+
     /// Get stopped jobs
     pub fn get_stopped_jobs(&self) -> Vec<&Job> {
-        self.jobs.values()
+        self.jobs
+            .values()
             .filter(|job| matches!(job.status, JobStatus::Stopped(_)))
             .collect()
     }
-    
+
     /// Get current foreground job ID
     pub fn current_foreground_job(&self) -> Option<usize> {
         self.current_foreground_job
     }
-    
+
     /// Bring job to foreground
     pub fn foreground_job(&mut self, job_id: usize) -> Result<(), String> {
         // First check if job exists and get its pgid
@@ -241,12 +247,12 @@ impl EnhancedJobControl {
         } else {
             return Err(format!("Job {} not found", job_id));
         };
-        
+
         // Update job status
         if let Some(job) = self.jobs.get_mut(&job_id) {
             job.foreground = true;
             self.current_foreground_job = Some(job_id);
-            
+
             // If job is stopped, send SIGCONT to continue it
             if let JobStatus::Stopped(_signal) = job.status {
                 #[cfg(unix)]
@@ -258,23 +264,23 @@ impl EnhancedJobControl {
                 job.status = JobStatus::Running;
             }
         }
-        
+
         // Give terminal to the job's process group
         #[cfg(unix)]
         self.give_terminal_to(pgid)?;
-        
+
         Ok(())
     }
-    
+
     /// Send job to background
     pub fn background_job(&mut self, job_id: usize) -> Result<(), String> {
         if let Some(job) = self.jobs.get_mut(&job_id) {
             job.foreground = false;
-            
+
             if self.current_foreground_job == Some(job_id) {
                 self.current_foreground_job = None;
             }
-            
+
             // If job is stopped, send SIGCONT to continue it in background
             if let JobStatus::Stopped(_signal) = job.status {
                 #[cfg(unix)]
@@ -288,16 +294,16 @@ impl EnhancedJobControl {
         } else {
             return Err(format!("Job {} not found", job_id));
         }
-        
+
         // Take back terminal control if this was the foreground job
         if self.current_foreground_job.is_none() {
             #[cfg(unix)]
             self.take_terminal_back()?;
         }
-        
+
         Ok(())
     }
-    
+
     /// Send signal to job
     pub fn signal_job(&mut self, job_id: usize, signal: ShellSignal) -> Result<(), String> {
         if let Some(job) = self.jobs.get(&job_id) {
@@ -307,19 +313,19 @@ impl EnhancedJobControl {
                     return Err(format!("Failed to send signal to job: {}", e));
                 }
             }
-            
+
             Ok(())
         } else {
             Err(format!("Job {} not found", job_id))
         }
     }
-    
+
     /// Wait for job to complete
     pub fn wait_for_job(&mut self, job_id: usize) -> Result<i32, String> {
         // First get the job to work on
         let mut last_status = 0;
         let mut should_update = false;
-        
+
         if let Some(job) = self.jobs.get_mut(&job_id) {
             // Wait for all child processes in the job
             for child in &mut job.children {
@@ -336,20 +342,20 @@ impl EnhancedJobControl {
         } else {
             return Err(format!("Job {} not found", job_id));
         }
-        
+
         // Now update the job status
         if should_update {
             self.update_job_status_from_wait(job_id, last_status)?;
         }
-        
+
         Ok(last_status)
     }
-    
+
     /// Wait for any job to change status
     pub fn wait_for_any_job(&mut self) -> Result<Option<(usize, i32)>, String> {
         // Collect jobs that have status changes
         let mut changed_jobs = Vec::new();
-        
+
         for (job_id, job) in &mut self.jobs {
             for child in &mut job.children {
                 match child.try_wait() {
@@ -366,30 +372,35 @@ impl EnhancedJobControl {
                 }
             }
         }
-        
+
         // Update job statuses
         for (job_id, exit_status) in &changed_jobs {
             self.update_job_status_from_wait(*job_id, *exit_status)?;
         }
-        
+
         // Return first changed job if any
         Ok(changed_jobs.first().map(|&(id, status)| (id, status)))
     }
-    
+
     /// Clean up finished jobs
     pub fn cleanup_finished_jobs(&mut self) {
-        let finished_ids: Vec<usize> = self.jobs.iter()
+        let finished_ids: Vec<usize> = self
+            .jobs
+            .iter()
             .filter(|(_, job)| {
-                matches!(job.status, JobStatus::Terminated(_) | JobStatus::Signaled(_))
+                matches!(
+                    job.status,
+                    JobStatus::Terminated(_) | JobStatus::Signaled(_)
+                )
             })
             .map(|(id, _)| *id)
             .collect();
-        
+
         for id in finished_ids {
             self.jobs.remove(&id);
         }
     }
-    
+
     /// Format job for display
     pub fn format_job(&self, job: &Job) -> String {
         let status_symbol = match job.status {
@@ -419,17 +430,19 @@ impl EnhancedJobControl {
             JobStatus::Terminated(status) => format!("D (exit {})", status),
             JobStatus::Signaled(signal) => format!("K (signal {})", signal),
         };
-        
+
         let fg_marker = if job.foreground { " (fg)" } else { " (bg)" };
-        
-        format!("[{}] {} {}: {}{}", 
-            job.id, status_symbol, job.pgid, job.command, fg_marker)
+
+        format!(
+            "[{}] {} {}: {}{}",
+            job.id, status_symbol, job.pgid, job.command, fg_marker
+        )
     }
-    
+
     /// Get jobs that need notification
     pub fn get_jobs_needing_notification(&mut self) -> Vec<String> {
         let mut notifications = Vec::new();
-        
+
         for job in self.jobs.values_mut() {
             if !job.notified {
                 let notification = match job.status {
@@ -437,7 +450,10 @@ impl EnhancedJobControl {
                         format!("[{}] Done    {}", job.id, job.command)
                     }
                     JobStatus::Signaled(signal) => {
-                        format!("[{}] Killed by signal {}    {}", job.id, signal, job.command)
+                        format!(
+                            "[{}] Killed by signal {}    {}",
+                            job.id, signal, job.command
+                        )
                     }
                     JobStatus::Stopped(signal) => {
                         let sig_name = match signal {
@@ -463,19 +479,19 @@ impl EnhancedJobControl {
                     }
                     JobStatus::Running => continue,
                 };
-                
+
                 notifications.push(notification);
                 job.notified = true;
             }
         }
-        
+
         notifications
     }
 }
 
 /// Global enhanced job control instance
 lazy_static::lazy_static! {
-    static ref ENHANCED_JOB_CONTROL: Arc<Mutex<EnhancedJobControl>> = 
+    static ref ENHANCED_JOB_CONTROL: Arc<Mutex<EnhancedJobControl>> =
         Arc::new(Mutex::new(EnhancedJobControl::new()));
 }
 
@@ -488,97 +504,98 @@ pub fn get_enhanced_job_control() -> Arc<Mutex<EnhancedJobControl>> {
 pub fn init_enhanced_job_control() -> Result<(), String> {
     #[cfg(unix)]
     {
-        use nix::sys::signal::{SigSet, Signal, sigprocmask, SigmaskHow};
-        
+        use nix::sys::signal::{sigprocmask, SigSet, SigmaskHow};
+
         // Block job control signals in shell
         let mut mask = SigSet::empty();
         mask.add(ShellSignal::SIGTTOU);
         mask.add(ShellSignal::SIGTTIN);
         mask.add(ShellSignal::SIGTSTP);
         mask.add(ShellSignal::SIGCHLD);
-        
+
         if let Err(e) = sigprocmask(SigmaskHow::SIG_BLOCK, Some(&mask), None) {
             return Err(format!("Failed to block job control signals: {}", e));
         }
-        
+
         // Set shell as its own process group leader
         let shell_pid = unistd::getpid();
         if let Err(e) = unistd::setpgid(shell_pid, shell_pid) {
             return Err(format!("Failed to set shell process group: {}", e));
         }
-        
+
         // Take control of terminal
         let fd = 0; // Standard input
         if let Err(e) = nix::unistd::tcsetpgrp(fd, shell_pid) {
             return Err(format!("Failed to take terminal control: {}", e));
         }
     }
-    
+
     Ok(())
 }
 
 /// Execute a command with job control
 pub fn execute_with_job_control(
-    command: &str, 
-    args: &[String], 
+    command: &str,
+    args: &[String],
     env: &ShellEnv,
     foreground: bool,
 ) -> Result<usize, String> {
     let mut cmd = Command::new(command);
-    
+
     for arg in args {
         cmd.arg(arg);
     }
-    
+
     // Set up environment
     cmd.current_dir(&env.current_dir);
     for (key, value) in &env.vars {
         cmd.env(key, value);
     }
-    
+
     #[cfg(unix)]
     {
-        use nix::unistd::{fork, ForkResult, setpgid};
-        use nix::sys::signal::Signal;
-        
+        use nix::unistd::{fork, setpgid, ForkResult};
+
         unsafe {
             match fork() {
                 Ok(ForkResult::Parent { child, .. }) => {
                     // Parent process
                     let child_pid = child.as_raw();
-                    
+
                     // Set child's process group
                     // If this is the first process in a pipeline, it becomes the process group leader
                     if let Err(e) = setpgid(child, child) {
                         return Err(format!("Failed to set child process group: {}", e));
                     }
-                    
+
                     let job_control = get_enhanced_job_control();
                     let mut jc = job_control.lock().unwrap();
-                    
+
                     // TODO: Actually get the child process
                     // For now, create a dummy child
                     let dummy_child = Command::new("true").spawn().map_err(|e| e.to_string())?;
-                    
-                    let job_id = jc.add_job(child_pid, format!("{} {}", command, args.join(" ")), foreground, dummy_child);
-                    
+
+                    let job_id = jc.add_job(
+                        child_pid,
+                        format!("{} {}", command, args.join(" ")),
+                        foreground,
+                        dummy_child,
+                    );
+
                     if foreground {
                         // Give terminal to the new process group
                         jc.give_terminal_to(child_pid)?;
                     }
-                    
+
                     Ok(job_id)
                 }
                 Ok(ForkResult::Child) => {
                     // Child process
                     // Reset signal handlers to default using sigaction
-                    use nix::sys::signal::{SigAction, SaFlags, SigHandler, SigSet};
-                    let default_action = SigAction::new(
-                        SigHandler::SigDfl,
-                        SaFlags::empty(),
-                        SigSet::empty()
-                    );
-                    
+                    use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet};
+                    let default_action =
+                        SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
+
                     let signals = [
                         ShellSignal::SIGINT,
                         ShellSignal::SIGQUIT,
@@ -587,28 +604,28 @@ pub fn execute_with_job_control(
                         ShellSignal::SIGTTOU,
                         ShellSignal::SIGCHLD,
                     ];
-                    
+
                     for sig in &signals {
                         #[cfg(unix)]
                         if let Err(e) = nix::sys::signal::sigaction(*sig, &default_action) {
                             eprintln!("Failed to reset signal handler for {:?}: {}", sig, e);
                         }
                     }
-                    
+
                     // Set process group
                     let child_pid = unistd::getpid();
                     if let Err(e) = setpgid(child_pid, child_pid) {
                         eprintln!("Failed to set process group: {}", e);
                         std::process::exit(1);
                     }
-                    
+
                     // If this is a foreground job, take control of terminal
                     if foreground {
                         if let Err(e) = nix::unistd::tcsetpgrp(0, child_pid) {
                             eprintln!("Failed to take terminal: {}", e);
                         }
                     }
-                    
+
                     // Execute command
                     #[cfg(unix)]
                     {
@@ -623,7 +640,9 @@ pub fn execute_with_job_control(
                         match cmd.spawn() {
                             Ok(mut child) => {
                                 let _ = child.wait();
-                                std::process::exit(child.wait().ok().and_then(|s| s.code()).unwrap_or(1));
+                                std::process::exit(
+                                    child.wait().ok().and_then(|s| s.code()).unwrap_or(1),
+                                );
                             }
                             Err(e) => {
                                 eprintln!("Failed to execute {}: {}", command, e);
@@ -636,7 +655,7 @@ pub fn execute_with_job_control(
             }
         }
     }
-    
+
     #[cfg(not(unix))]
     {
         // Non-Unix fallback
@@ -645,9 +664,14 @@ pub fn execute_with_job_control(
                 let pid = child.id() as i32;
                 let job_control = get_enhanced_job_control();
                 let mut jc = job_control.lock().unwrap();
-                
-                let job_id = jc.add_job(pid, format!("{} {}", command, args.join(" ")), foreground, child);
-                
+
+                let job_id = jc.add_job(
+                    pid,
+                    format!("{} {}", command, args.join(" ")),
+                    foreground,
+                    child,
+                );
+
                 Ok(job_id)
             }
             Err(e) => Err(format!("Failed to execute command: {}", e)),
@@ -659,18 +683,18 @@ pub fn execute_with_job_control(
 pub fn jobs_builtin(_args: &[String]) -> i32 {
     let job_control = get_enhanced_job_control();
     let jc = job_control.lock().unwrap();
-    
+
     let all_jobs = jc.get_all_jobs();
-    
+
     if all_jobs.is_empty() {
         println!("No jobs");
         return 0;
     }
-    
+
     for job in all_jobs {
         println!("{}", jc.format_job(job));
     }
-    
+
     0
 }
 
@@ -678,7 +702,7 @@ pub fn jobs_builtin(_args: &[String]) -> i32 {
 pub fn fg_builtin(args: &[String]) -> i32 {
     let job_control = get_enhanced_job_control();
     let mut jc = job_control.lock().unwrap();
-    
+
     let job_id = if args.is_empty() {
         // Use current job
         jc.current_foreground_job()
@@ -691,17 +715,15 @@ pub fn fg_builtin(args: &[String]) -> i32 {
             spec.parse().ok()
         }
     };
-    
+
     match job_id {
-        Some(job_id) => {
-            match jc.foreground_job(job_id) {
-                Ok(_) => 0,
-                Err(e) => {
-                    eprintln!("fg: {}", e);
-                    1
-                }
+        Some(job_id) => match jc.foreground_job(job_id) {
+            Ok(_) => 0,
+            Err(e) => {
+                eprintln!("fg: {}", e);
+                1
             }
-        }
+        },
         None => {
             eprintln!("fg: no current job");
             1
@@ -713,7 +735,7 @@ pub fn fg_builtin(args: &[String]) -> i32 {
 pub fn bg_builtin(args: &[String]) -> i32 {
     let job_control = get_enhanced_job_control();
     let mut jc = job_control.lock().unwrap();
-    
+
     let job_id = if args.is_empty() {
         // Use current job
         jc.current_foreground_job()
@@ -726,17 +748,15 @@ pub fn bg_builtin(args: &[String]) -> i32 {
             spec.parse().ok()
         }
     };
-    
+
     match job_id {
-        Some(job_id) => {
-            match jc.background_job(job_id) {
-                Ok(_) => 0,
-                Err(e) => {
-                    eprintln!("bg: {}", e);
-                    1
-                }
+        Some(job_id) => match jc.background_job(job_id) {
+            Ok(_) => 0,
+            Err(e) => {
+                eprintln!("bg: {}", e);
+                1
             }
-        }
+        },
         None => {
             eprintln!("bg: no current job");
             1
@@ -748,7 +768,7 @@ pub fn bg_builtin(args: &[String]) -> i32 {
 pub fn wait_builtin(args: &[String]) -> i32 {
     let job_control = get_enhanced_job_control();
     let mut jc = job_control.lock().unwrap();
-    
+
     let job_id = if args.is_empty() {
         // Wait for all jobs
         // For now, just return success
@@ -762,17 +782,15 @@ pub fn wait_builtin(args: &[String]) -> i32 {
             spec.parse().ok()
         }
     };
-    
+
     match job_id {
-        Some(job_id) => {
-            match jc.wait_for_job(job_id) {
-                Ok(status) => status,
-                Err(e) => {
-                    eprintln!("wait: {}", e);
-                    1
-                }
+        Some(job_id) => match jc.wait_for_job(job_id) {
+            Ok(status) => status,
+            Err(e) => {
+                eprintln!("wait: {}", e);
+                1
             }
-        }
+        },
         None => {
             eprintln!("wait: invalid job specification");
             1

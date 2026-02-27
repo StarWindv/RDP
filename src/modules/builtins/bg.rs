@@ -12,11 +12,11 @@ impl BuiltinCommand for Bg {
     fn name(&self) -> &'static str {
         "bg"
     }
-    
+
     fn execute(&self, args: &[String], _env: &mut ShellEnv) -> i32 {
         let job_control = get_job_control();
         let mut jc = job_control.lock().unwrap();
-        
+
         let job_id = if args.is_empty() {
             // Default to current job
             jc.current_foreground_job()
@@ -30,20 +30,18 @@ impl BuiltinCommand for Bg {
                 }
             }
         };
-        
+
         match job_id {
-            Some(id) => {
-                match jc.background_job(id) {
-                    Ok(_) => {
-                        println!("Sent job {} to background", id);
-                        0
-                    }
-                    Err(e) => {
-                        eprintln!("bg: {}", e);
-                        1
-                    }
+            Some(id) => match jc.background_job(id) {
+                Ok(_) => {
+                    println!("Sent job {} to background", id);
+                    0
                 }
-            }
+                Err(e) => {
+                    eprintln!("bg: {}", e);
+                    1
+                }
+            },
             None => {
                 eprintln!("bg: no current job");
                 1
