@@ -599,13 +599,61 @@ impl SsaExecutor {
                 ExecValue::Void
             }
             
-            // Function call
-            Instruction::CallFunction(_func_name, _args, result) => {
-                // TODO: Implement function call
-                // For now, just return success
-                let value = ExecValue::ExitStatus(0);
-                self.set_value(*result, value.clone());
-                value
+            // Function call operations
+            Instruction::CallFunction(func_name, args, result) => {
+                // Get function name
+                let func_name_val = func_name.clone();
+                
+                // Check if it's a built-in function
+                if self.builtins.is_builtin(&func_name_val) {
+                    // Execute as builtin
+                    let arg_strings: Vec<String> = args.iter()
+                        .map(|arg| self.get_value(*arg).as_string())
+                        .collect();
+                    
+                    let status = self.builtins.execute(&func_name_val, &arg_strings, &mut self.env);
+                    let value = ExecValue::ExitStatus(status);
+                    self.set_value(*result, value.clone());
+                    return value;
+                }
+                
+                // Look up user-defined function
+                if let Some(func) = self.functions.get(&func_name_val) {
+                    // Clone the function to avoid borrowing issues
+                    let func_clone = func.clone();
+                    
+                    // Save current context
+                    let old_function = self.current_function.clone();
+                    let old_block = self.current_block;
+                    let old_pc = self.program_counter;
+                    let old_stack = self.call_stack.clone();
+                    
+                    // Push return address onto call stack
+                    if let Some(current_func) = &old_function {
+                        if let Some(current_block) = old_block {
+                            self.call_stack.push((current_func.clone(), current_block, old_pc));
+                        }
+                    }
+                    
+                    // Execute function
+                    let result_value = self.execute_block(func_clone.entry_block, &func_clone);
+                    
+                    // Restore context
+                    self.current_function = old_function;
+                    self.current_block = old_block;
+                    self.program_counter = old_pc;
+                    self.call_stack = old_stack;
+                    
+                    // Set result value
+                    self.set_value(*result, result_value.clone());
+                    result_value
+                } else {
+                    // Function not found
+                    eprintln!("{}: command not found", func_name_val);
+                    let value = ExecValue::ExitStatus(127);
+                    self.set_value(*result, value.clone());
+                    value
+                }
             }
             
             // Export, unset, readonly variable operations

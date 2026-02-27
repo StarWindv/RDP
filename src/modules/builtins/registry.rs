@@ -31,6 +31,7 @@ use super::pwd::Pwd;
 use super::true_cmd::True;
 use super::wait::Wait;
 use super::help::Help;
+use super::return_cmd::Return;
 
 /// Trait for built-in commands
 pub trait BuiltinCommand {
@@ -66,6 +67,7 @@ impl BuiltinRegistry {
         registry.register(Box::new(Trap));
         registry.register(Box::new(Unset));
         registry.register(Box::new(Local));
+        registry.register(Box::new(Return));
         
         registry.register(Box::new(Alias));
         registry.register(Box::new(Bg));

@@ -877,12 +877,48 @@ impl SsaIrGenerator {
         result
     }
     
-    fn generate_function_definition(&mut self, name: &str, _body: Vec<Box<AstNode>>) -> ValueId {
+    fn generate_function_definition(&mut self, name: &str, body: Vec<Box<AstNode>>) -> ValueId {
         // Function definition: name() { body; }
         // In SSA IR, we create a new function
         
-        // For now, we'll just store the function body in a placeholder
-        // In a full implementation, we would create a new Function and store it
+        // Create a new function with parameters
+        let func_name = format!("func_{}", name);
+        let params = vec!["$0".to_string(), "$1".to_string(), "$2".to_string(), "$3".to_string(), "$4".to_string(), "$5".to_string(), "$6".to_string(), "$7".to_string(), "$8".to_string(), "$9".to_string()];
+        
+        // Save current function context
+        let old_builder = std::mem::replace(&mut self.builder, IrBuilder::new());
+        let old_current_function = self.current_function.take();
+        let old_current_block = self.current_block.take();
+        
+        // Create new function
+        self.builder.begin_function(func_name.clone(), params.clone());
+        self.current_block = Some(BasicBlockId(0));
+        
+        // Store function in registry
+        // For now, we'll create a placeholder
+        // In a full implementation, we would store the function body
+        
+        // Generate function body
+        let mut last_status = self.create_value(ValueType::ExitStatus);
+        self.add_instruction(Instruction::ConstInt(0, last_status));
+        
+        for cmd in body {
+            let status = self.generate_node(*cmd);
+            last_status = status;
+        }
+        
+        // Add return instruction
+        self.add_instruction(Instruction::Return(last_status));
+        
+        // End function and get it
+        let func = self.builder.end_function().expect("Function should exist");
+        
+        // TODO: Store function in a function registry
+        
+        // Restore previous context
+        self.builder = old_builder;
+        self.current_function = old_current_function;
+        self.current_block = old_current_block;
         
         // Create a function value placeholder
         let func_val = self.create_value_with_name(ValueType::String, name.to_string());
@@ -892,9 +928,7 @@ impl SsaIrGenerator {
         self.add_instruction(Instruction::ConstString(name.to_string(), func_name_val));
         self.add_instruction(Instruction::Store(func_val, func_name_val));
         
-        // TODO: Actually create and store function body
-        // For now, just return success
-        
+        // Return success status
         let result = self.create_value(ValueType::ExitStatus);
         self.add_instruction(Instruction::ConstInt(0, result));
         result

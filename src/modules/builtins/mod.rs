@@ -17,6 +17,7 @@ pub mod times;         // times
 pub mod trap;          // trap
 pub mod unset;         // unset
 pub mod local;         // local
+pub mod return_cmd;    // return
 
 // POSIX standard utility builtins (usually built-in)
 pub mod alias;         // alias
@@ -63,6 +64,7 @@ pub use times::Times;
 pub use trap::Trap;
 pub use unset::Unset;
 pub use local::Local;
+pub use return_cmd::Return;
 pub use alias::Alias;
 pub use bg::Bg;
 pub use cd::Cd;
