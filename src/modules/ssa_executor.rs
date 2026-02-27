@@ -622,6 +622,37 @@ impl SsaExecutor {
                     // Clone the function to avoid borrowing issues
                     let func_clone = func.clone();
                     
+                    // Enter function scope
+                    let mut vs = get_variable_system();
+                    vs.enter_scope();
+                    
+                    // Set positional parameters
+                    // $0 is function name
+                    vs.set("0".to_string(), func_name_val.clone())
+                        .unwrap_or_else(|e| eprintln!("Failed to set $0: {}", e));
+                    
+                    // Set arguments $1, $2, etc.
+                    for (i, arg_id) in args.iter().enumerate() {
+                        let arg_val = self.get_value(*arg_id).as_string();
+                        let param_name = (i + 1).to_string();
+                        vs.set(param_name, arg_val)
+                            .unwrap_or_else(|e| eprintln!("Failed to set ${}: {}", i + 1, e));
+                    }
+                    
+                    // Set special parameter $# (number of arguments)
+                    vs.set("#".to_string(), args.len().to_string())
+                        .unwrap_or_else(|e| eprintln!("Failed to set $#: {}", e));
+                    
+                    // Set special parameter $* and $@ (all arguments)
+                    let all_args: Vec<String> = args.iter()
+                        .map(|arg_id| self.get_value(*arg_id).as_string())
+                        .collect();
+                    let all_args_str = all_args.join(" ");
+                    vs.set("*".to_string(), all_args_str.clone())
+                        .unwrap_or_else(|e| eprintln!("Failed to set $*: {}", e));
+                    vs.set("@".to_string(), all_args_str)
+                        .unwrap_or_else(|e| eprintln!("Failed to set $@: {}", e));
+                    
                     // Save current context
                     let old_function = self.current_function.clone();
                     let old_block = self.current_block;
@@ -637,6 +668,9 @@ impl SsaExecutor {
                     
                     // Execute function
                     let result_value = self.execute_block(func_clone.entry_block, &func_clone);
+                    
+                    // Exit function scope
+                    vs.exit_scope().unwrap_or_else(|e| eprintln!("Failed to exit function scope: {}", e));
                     
                     // Restore context
                     self.current_function = old_function;
