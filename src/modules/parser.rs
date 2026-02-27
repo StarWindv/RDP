@@ -212,6 +212,7 @@ impl<'a> Parser<'a> {
         let mut name = None;
         let mut args = Vec::new();
         let mut command_tokens = Vec::new();
+        let mut current_arg = String::new(); // Track current argument being built
 
         // Parse command name and arguments
         while let Some(token) = &self.current_token {
@@ -222,6 +223,12 @@ impl<'a> Parser<'a> {
             match &token.token_type {
                 TokenType::Word(word) | TokenType::Name(word) => {
                     println!("DEBUG PARSER SIMPLE_CMD: Word/Name token: '{}'", word);
+                    // If we have a current arg being built, add this as a new argument
+                    if !current_arg.is_empty() {
+                        args.push(current_arg.clone());
+                        current_arg.clear();
+                    }
+                    
                     if name.is_none() {
                         name = Some(word.clone());
                         println!("DEBUG PARSER SIMPLE_CMD: Set command name to '{}'", word);
@@ -297,7 +304,7 @@ impl<'a> Parser<'a> {
                             command_tokens.push(next_token.clone());
                             self.advance();
 
-                            // Create expanded argument
+                            // Append to current argument
                             let expanded = format!("${}", var_name);
                             if name.is_none() {
                                 name = Some(expanded.clone());
@@ -306,8 +313,8 @@ impl<'a> Parser<'a> {
                                     expanded
                                 );
                             } else {
-                                args.push(expanded.clone());
-                                println!("DEBUG PARSER SIMPLE_CMD: Added argument '{}' (from $VAR), args now: {:?}", expanded, args);
+                                current_arg.push_str(&expanded);
+                                println!("DEBUG PARSER SIMPLE_CMD: Appended '{}' to current_arg: '{}'", expanded, current_arg);
                             }
                         } else if let TokenType::Word(var_name) = &next_token.token_type {
                             // This could be $? or other special variable
@@ -321,8 +328,8 @@ impl<'a> Parser<'a> {
                                 name = Some(expanded.clone());
                                 println!("DEBUG PARSER SIMPLE_CMD: Set command name to '{}' (from $word)", expanded);
                             } else {
-                                args.push(expanded.clone());
-                                println!("DEBUG PARSER SIMPLE_CMD: Added argument '{}' (from $word), args now: {:?}", expanded, args);
+                                current_arg.push_str(&expanded);
+                                println!("DEBUG PARSER SIMPLE_CMD: Appended '{}' to current_arg: '{}'", expanded, current_arg);
                             }
                         } else {
                             // Just a standalone $
@@ -331,8 +338,8 @@ impl<'a> Parser<'a> {
                                 name = Some(expanded.clone());
                                 println!("DEBUG PARSER SIMPLE_CMD: Set command name to '{}' (from standalone dollar)", expanded);
                             } else {
-                                args.push(expanded.clone());
-                                println!("DEBUG PARSER SIMPLE_CMD: Added argument '{}' (from standalone dollar), args now: {:?}", expanded, args);
+                                current_arg.push_str(&expanded);
+                                println!("DEBUG PARSER SIMPLE_CMD: Appended '{}' to current_arg: '{}'", expanded, current_arg);
                             }
                         }
                     } else {
@@ -342,8 +349,8 @@ impl<'a> Parser<'a> {
                             name = Some(expanded.clone());
                             println!("DEBUG PARSER SIMPLE_CMD: Set command name to '{}' (from dollar at end)", expanded);
                         } else {
-                            args.push(expanded.clone());
-                            println!("DEBUG PARSER SIMPLE_CMD: Added argument '{}' (from dollar at end), args now: {:?}", expanded, args);
+                            current_arg.push_str(&expanded);
+                            println!("DEBUG PARSER SIMPLE_CMD: Appended '{}' to current_arg: '{}'", expanded, current_arg);
                         }
                     }
                 }
@@ -356,6 +363,12 @@ impl<'a> Parser<'a> {
                     break;
                 }
             }
+        }
+
+        // Push any remaining current_arg
+        if !current_arg.is_empty() {
+            args.push(current_arg);
+            println!("DEBUG PARSER SIMPLE_CMD: Pushed final current_arg");
         }
 
         // If no command name was found, check if we have assignments only

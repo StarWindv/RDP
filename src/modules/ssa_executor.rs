@@ -18,6 +18,7 @@ pub struct SsaExecutor {
     env: ShellEnv,
     functions: HashMap<String, Function>,
     values: HashMap<ValueId, ExecValue>,
+    var_names: HashMap<ValueId, String>,          // Track which ValueId corresponds to which variable name
     current_function: Option<String>,
     current_block: Option<BasicBlockId>,
     program_counter: usize,
@@ -145,6 +146,7 @@ impl SsaExecutor {
             env: ShellEnv::new(),
             functions: HashMap::new(),
             values: HashMap::new(),
+            var_names: HashMap::new(),
             current_function: None,
             current_block: None,
             program_counter: 0,
@@ -167,6 +169,7 @@ impl SsaExecutor {
         self.program_counter = 0;
         self.call_stack.clear();
         self.predecessor_blocks.clear();
+        self.var_names.clear(); // Clear variable name mapping for new function
 
         // Execute
         let result = self.execute_block(func.entry_block, func);
@@ -267,17 +270,23 @@ impl SsaExecutor {
             | Instruction::Continue(_) => ExecValue::Void,
 
             // Variable operations
-            Instruction::AllocVar(_name, result) => {
+            Instruction::AllocVar(name, result) => {
                 let value = ExecValue::String(String::new());
                 self.set_value(*result, value.clone());
+                self.var_names.insert(*result, name.clone()); // Track this ValueId -> variable name
                 value
             }
 
             Instruction::Store(var, value) => {
                 let val = self.get_value(*value);
-                // In real shell, we'd store in environment
-                // For now, just store in values map
+                // Store in values map
                 self.set_value(*var, val.clone());
+                
+                // Also update the variable system if this is a tracked variable
+                if let Some(var_name) = self.var_names.get(var).cloned() {
+                    let mut vs = get_variable_system();
+                    let _ = vs.set(var_name, val.as_string());
+                }
                 ExecValue::Void
             }
 

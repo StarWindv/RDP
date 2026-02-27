@@ -242,39 +242,125 @@ impl SsaIrGenerator {
 
     /// Generate expansion for an argument string
     fn generate_argument_expansion(&mut self, arg: &str) -> ValueId {
-        // For now, implement a simple version that handles $VAR and ${VAR}
-        // In a full implementation, we would need to parse the string and handle
-        // mixed expansions like "prefix_${VAR}_suffix"
+        // For now, implement a version that handles $VAR and ${VAR}
+        // and concatenations like $VAR1$VAR2
 
-        // Check if it's a simple variable reference
-        if arg.starts_with('$') {
-            // Remove $ prefix
-            let var_name = if arg.starts_with("${") && arg.ends_with('}') {
-                // ${VAR} syntax
-                &arg[2..arg.len() - 1]
-            } else if arg.starts_with('$') {
-                // $VAR syntax
-                &arg[1..]
-            } else {
-                arg
-            };
-
-            // Create parameter expansion instruction
-            let param_val = self.create_value(ValueType::String);
-            self.add_instruction(Instruction::ConstString(var_name.to_string(), param_val));
-
-            let result = self.create_value(ValueType::String);
-            self.add_instruction(Instruction::ParamExpand(
-                param_val,
-                crate::modules::ssa_ir::ParamExpandOp::Simple,
-                result,
-            ));
-
-            return result;
+        // Check if the argument contains multiple variable references
+        // Pattern: starts with $ and contains variable refs
+        if arg.contains('$') {
+            // Parse the argument to extract variable references
+            // For now, use a simple regex-like approach
+            let mut parts: Vec<(String, String)> = Vec::new(); // Use String instead of &str
+            let mut current = String::new();
+            let mut chars = arg.chars().peekable();
+            
+            while let Some(ch) = chars.next() {
+                if ch == '$' {
+                    // Push the current literal part if it's not empty
+                    if !current.is_empty() {
+                        parts.push(("literal".to_string(), current.clone()));
+                        current.clear();
+                    }
+                    
+                    // Extract variable name
+                    if let Some(&'{') = chars.peek() {
+                        // ${VAR} format
+                        chars.next(); // consume {
+                        let mut var_name = String::new();
+                        while let Some(&ch) = chars.peek() {
+                            if ch == '}' {
+                                chars.next(); // consume }
+                                break;
+                            }
+                            var_name.push(chars.next().unwrap());
+                        }
+                        parts.push(("var".to_string(), var_name));
+                    } else {
+                        // $VAR format - get identifier characters
+                        let mut var_name = String::new();
+                        while let Some(&ch) = chars.peek() {
+                            if ch.is_alphanumeric() || ch == '_' {
+                                var_name.push(chars.next().unwrap());
+                            } else {
+                                break;
+                            }
+                        }
+                        if !var_name.is_empty() {
+                            parts.push(("var".to_string(), var_name));
+                        } else {
+                            // Just a $ followed by something else
+                            current.push('$');
+                        }
+                    }
+                } else {
+                    current.push(ch);
+                }
+            }
+            
+            // Push any remaining literal
+            if !current.is_empty() {
+                parts.push(("literal".to_string(), current));
+            }
+            
+            // If we have multiple parts, concatenate them
+            if parts.len() > 1 {
+                // Create concatenation of all parts
+                let mut result_val = None;
+                
+                for (part_type, part_value) in parts {
+                    let part_val = if part_type == "var" {
+                        // Variable reference
+                        let param_val = self.create_value(ValueType::String);
+                        self.add_instruction(Instruction::ConstString(part_value, param_val));
+                        
+                        let expanded = self.create_value(ValueType::String);
+                        self.add_instruction(Instruction::ParamExpand(
+                            param_val,
+                            crate::modules::ssa_ir::ParamExpandOp::Simple,
+                            expanded,
+                        ));
+                        expanded
+                    } else {
+                        // Literal
+                        let lit_val = self.create_value(ValueType::String);
+                        self.add_instruction(Instruction::ConstString(part_value, lit_val));
+                        lit_val
+                    };
+                    
+                    if let Some(prev_val) = result_val {
+                        // Concatenate: prev_val + part_val
+                        let concat_val = self.create_value(ValueType::String);
+                        self.add_instruction(Instruction::Concat(prev_val, part_val, concat_val));
+                        result_val = Some(concat_val);
+                    } else {
+                        result_val = Some(part_val);
+                    }
+                }
+                
+                return result_val.unwrap();
+            } else if parts.len() == 1 {
+                // Single part
+                let (part_type, part_value) = &parts[0];
+                if part_type == "var" {
+                    let param_val = self.create_value(ValueType::String);
+                    self.add_instruction(Instruction::ConstString(part_value.to_string(), param_val));
+                    
+                    let result = self.create_value(ValueType::String);
+                    self.add_instruction(Instruction::ParamExpand(
+                        param_val,
+                        crate::modules::ssa_ir::ParamExpandOp::Simple,
+                        result,
+                    ));
+                    return result;
+                } else {
+                    let lit_val = self.create_value(ValueType::String);
+                    self.add_instruction(Instruction::ConstString(part_value.to_string(), lit_val));
+                    return lit_val;
+                }
+            }
         }
 
         // For now, if we can't handle the expansion, return as-is
-        // TODO: Implement full expansion logic
         let val = self.create_value(ValueType::String);
         self.add_instruction(Instruction::ConstString(arg.to_string(), val));
         val
