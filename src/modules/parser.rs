@@ -589,6 +589,11 @@ impl<'a> Parser<'a> {
         // Parse condition
         let condition = self.parse_command()?;
         
+        // Skip semicolon/newline after condition
+        if self.check_token_type(&TokenType::Semicolon) || self.check_token_type(&TokenType::Newline) {
+            self.advance();
+        }
+        
         // Parse 'do'
         if !self.check_token_type(&TokenType::Do) {
             return Err(ParseError {
@@ -642,6 +647,11 @@ impl<'a> Parser<'a> {
         
         // Parse condition
         let condition = self.parse_command()?;
+        
+        // Skip semicolon/newline after condition
+        if self.check_token_type(&TokenType::Semicolon) || self.check_token_type(&TokenType::Newline) {
+            self.advance();
+        }
         
         // Parse 'do'
         if !self.check_token_type(&TokenType::Do) {

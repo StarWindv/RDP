@@ -882,6 +882,16 @@ impl SsaExecutor {
                 value
             }
             
+            // Parameter expansion
+            Instruction::ParamExpand(param, op, result) => {
+                let param_val = self.get_value(*param);
+                let param_str = param_val.as_string();
+                let expanded = self.execute_param_expand(&param_str, op);
+                let value = ExecValue::String(expanded);
+                self.set_value(*result, value.clone());
+                value
+            }
+            
             // Handle any other instructions not explicitly matched
             _ => {
                 eprintln!("Warning: Unimplemented instruction: {:?}", instr);
