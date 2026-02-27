@@ -19,7 +19,17 @@
 
 暂无前置任务
 
-### 1. 作业控制系统
+### 1. 函数系统完整实现
+- 函数参数传递
+- 函数局部变量
+- 函数返回值
+- 函数递归支持
+- `return` 作为语法支持实现而不是内置命令, 这样的实现可以使得`rs-dash-pro`更加接近现代语言
+
+**实现优先级**: 高
+**影响**: 函数定义和使用
+
+### 2. 作业控制系统
 - 后台执行：`&` 操作符
 - 进程组管理
 - 信号处理：SIGINT (Ctrl+C), SIGTSTP (Ctrl+Z), SIGCONT
@@ -29,7 +39,7 @@
 **实现优先级**: 最高
 **影响**: 交互式使用和进程管理
 
-### 2. Shell选项系统
+### 3. Shell选项系统
 - `set` 选项：`-e` (errexit), `-u` (nounset), `-x` (xtrace), `-n` (noexec), `-v` (verbose)
 - `-o` 选项：`allexport`, `errexit`, `ignoreeof`, `interactive`, `monitor`, `noclobber`, `noexec`, `noglob`, `nolog`, `notify`, `nounset`, `physical`, `posix`, `verbose`, `vi`, `xtrace`
 - 选项继承（子shell）
@@ -38,7 +48,7 @@
 **实现优先级**: 最高
 **影响**: shell行为控制和脚本调试
 
-### 3. 变量属性系统
+### 4. 变量属性系统
 - 变量属性：`export`, `readonly`
 - 局部变量作用域：`local` 内置命令
 - 变量继承（子shell和函数）
@@ -47,7 +57,7 @@
 **实现优先级**: 最高
 **影响**: 变量作用域和属性管理
 
-### 4. 控制结构完整执行
+### 5. 控制结构完整执行
 - `if-then-elif-else-fi` 完整执行
 - `for var in words; do commands; done` 完整执行
 - `while condition; do commands; done` 完整执行
@@ -57,16 +67,6 @@
 
 **实现优先级**: 最高
 **影响**: 无法执行控制流脚本
-
-### 5. 函数系统完整实现
-- 函数参数传递
-- 函数局部变量
-- 函数返回值
-- 函数递归支持
-- `return` 内置命令完整实现
-
-**实现优先级**: 高
-**影响**: 函数定义和使用
 
 ### 6. Here文档
 - 基本here-doc：`<< EOF`
