@@ -127,6 +127,12 @@ impl<'a> Parser<'a> {
             return self.parse_function_definition();
         } else if self.check_token_type(&TokenType::LeftParen) {
             return self.parse_subshell();
+        } else if self.check_token_type(&TokenType::Break) {
+            return self.parse_break_statement();
+        } else if self.check_token_type(&TokenType::Continue) {
+            return self.parse_continue_statement();
+        } else if self.check_token_type(&TokenType::Return) {
+            return self.parse_return_statement();
         }
 
         // Check for function definition with name() syntax
@@ -1256,6 +1262,119 @@ impl<'a> Parser<'a> {
             body: body_commands,
             tokens,
         })
+    }
+
+    /// Parse break statement: break [n]
+    fn parse_break_statement(&mut self) -> Result<AstNode, ParseError> {
+        let token = self.current_token.clone().unwrap();
+        self.advance();
+
+        // Parse optional level argument (break [n])
+        let level = if !self.is_at_end() &&
+            !self.check_token_type(&TokenType::Semicolon) &&
+            !self.check_token_type(&TokenType::Newline) &&
+            !self.check_token_type(&TokenType::Pipe) &&
+            !self.check_token_type(&TokenType::AndIf) &&
+            !self.check_token_type(&TokenType::OrIf) &&
+            !self.check_token_type(&TokenType::Ampersand) {
+            if let Some(tok) = &self.current_token {
+                if let TokenType::Number(n) = &tok.token_type {
+                    let level = *n as u32;
+                    self.advance();
+                    Some(level)
+                } else if let TokenType::Word(s) = &tok.token_type {
+                    if let Ok(n) = s.parse::<u32>() {
+                        self.advance();
+                        Some(n)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        Ok(AstNode::BreakStatement { level, token })
+    }
+
+    /// Parse continue statement: continue [n]
+    fn parse_continue_statement(&mut self) -> Result<AstNode, ParseError> {
+        let token = self.current_token.clone().unwrap();
+        self.advance();
+
+        // Parse optional level argument (continue [n])
+        let level = if !self.is_at_end() &&
+            !self.check_token_type(&TokenType::Semicolon) &&
+            !self.check_token_type(&TokenType::Newline) &&
+            !self.check_token_type(&TokenType::Pipe) &&
+            !self.check_token_type(&TokenType::AndIf) &&
+            !self.check_token_type(&TokenType::OrIf) &&
+            !self.check_token_type(&TokenType::Ampersand) {
+            if let Some(tok) = &self.current_token {
+                if let TokenType::Number(n) = &tok.token_type {
+                    let level = *n as u32;
+                    self.advance();
+                    Some(level)
+                } else if let TokenType::Word(s) = &tok.token_type {
+                    if let Ok(n) = s.parse::<u32>() {
+                        self.advance();
+                        Some(n)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        Ok(AstNode::ContinueStatement { level, token })
+    }
+
+    /// Parse return statement: return [status]
+    fn parse_return_statement(&mut self) -> Result<AstNode, ParseError> {
+        let token = self.current_token.clone().unwrap();
+        self.advance();
+
+        // Parse optional exit code argument (return [status])
+        let exit_code = if !self.is_at_end() &&
+            !self.check_token_type(&TokenType::Semicolon) &&
+            !self.check_token_type(&TokenType::Newline) &&
+            !self.check_token_type(&TokenType::Pipe) &&
+            !self.check_token_type(&TokenType::AndIf) &&
+            !self.check_token_type(&TokenType::OrIf) &&
+            !self.check_token_type(&TokenType::Ampersand) {
+            if let Some(tok) = &self.current_token {
+                match &tok.token_type {
+                    TokenType::Number(n) => {
+                        let code = n.to_string();
+                        self.advance();
+                        Some(code)
+                    }
+                    TokenType::Word(s) => {
+                        let code = s.clone();
+                        self.advance();
+                        Some(code)
+                    }
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        Ok(AstNode::ReturnStatement { exit_code, token })
     }
 
     // Helper methods

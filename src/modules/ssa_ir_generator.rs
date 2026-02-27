@@ -168,6 +168,21 @@ impl SsaIrGenerator {
             AstNode::Readonly { variables, .. } => self.generate_readonly_command(&variables),
 
             // ============================================
+            // Control Flow Statements (Language-level)
+            // ============================================
+            AstNode::BreakStatement { level, .. } => {
+                self.generate_break_statement(level)
+            }
+
+            AstNode::ContinueStatement { level, .. } => {
+                self.generate_continue_statement(level)
+            }
+
+            AstNode::ReturnStatement { exit_code, .. } => {
+                self.generate_return_statement(exit_code)
+            }
+
+            // ============================================
             // Special Nodes
             // ============================================
             AstNode::NullCommand => self.generate_null_command(),
@@ -718,19 +733,14 @@ impl SsaIrGenerator {
             // Case block: check patterns
             self.set_current_block(*case_block);
 
-            // For each pattern in this case
+            // For each pattern in this case, use glob pattern matching
             let mut pattern_checks = Vec::new();
             for pattern in &case.patterns {
-                // TODO: Implement pattern matching
-                // For now, just do string equality
-                let pattern_val = self.create_value(ValueType::String);
-                self.add_instruction(Instruction::ConstString(pattern.clone(), pattern_val));
-
+                // Use PatternMatch for shell glob pattern matching
                 let match_result = self.create_value(ValueType::Boolean);
-                self.add_instruction(Instruction::Cmp(
+                self.add_instruction(Instruction::PatternMatch(
                     word_val,
-                    pattern_val,
-                    CmpOp::Eq,
+                    pattern.clone(),
                     match_result,
                 ));
 
@@ -1241,6 +1251,49 @@ impl SsaIrGenerator {
         self.add_instruction(Instruction::Error(message.to_string(), token));
         self.add_instruction(Instruction::ConstInt(1, result));
         result
+    }
+
+    fn generate_break_statement(&mut self, level: Option<u32>) -> ValueId {
+        // Break with optional level for breaking out of nested loops
+        // For now, ignore the level and emit a simple Break instruction
+        self.add_instruction(Instruction::Break(level.map(|l| l as i32)));
+        
+        // Return a dummy exit status (break doesn't really return a value)
+        let result = self.create_value(ValueType::ExitStatus);
+        self.add_instruction(Instruction::ConstInt(0, result));
+        result
+    }
+
+    fn generate_continue_statement(&mut self, level: Option<u32>) -> ValueId {
+        // Continue with optional level for nested loops
+        // For now, ignore the level and emit a simple Continue instruction
+        self.add_instruction(Instruction::Continue(level.map(|l| l as i32)));
+        
+        // Return a dummy exit status (continue doesn't really return a value)
+        let result = self.create_value(ValueType::ExitStatus);
+        self.add_instruction(Instruction::ConstInt(0, result));
+        result
+    }
+
+    fn generate_return_statement(&mut self, exit_code: Option<String>) -> ValueId {
+        let status = if let Some(code_str) = exit_code {
+            // Try to parse as integer, otherwise use 0
+            if let Ok(code) = code_str.parse::<i32>() {
+                self.create_const_int(code)
+            } else {
+                // For now, just use 0 for non-numeric exit codes
+                // In a real implementation, this would need to handle variable expansion
+                self.create_const_int(0)
+            }
+        } else {
+            // Default return code 0
+            self.create_const_int(0)
+        };
+        
+        // Emit Return instruction
+        self.add_instruction(Instruction::Return(status));
+        
+        status
     }
 
     // ============================================

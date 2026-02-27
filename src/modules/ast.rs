@@ -194,6 +194,27 @@ pub enum AstNode {
         tokens: Vec<Token>,
     },
 
+    // ============================================
+    // Control Flow Statements (Language-level)
+    // ============================================
+    /// Break statement: break [n]
+    BreakStatement {
+        level: Option<u32>,
+        token: Token,
+    },
+
+    /// Continue statement: continue [n]
+    ContinueStatement {
+        level: Option<u32>,
+        token: Token,
+    },
+
+    /// Return statement: return [status]
+    ReturnStatement {
+        exit_code: Option<String>,
+        token: Token,
+    },
+
     /// Error node
     Error { message: String, token: Token },
 }
@@ -579,6 +600,30 @@ impl fmt::Display for AstNode {
                     write!(f, "{}", var)?;
                 }
                 write!(f, ")")
+            }
+
+            AstNode::BreakStatement { level, .. } => {
+                if let Some(l) = level {
+                    write!(f, "Break({})", l)
+                } else {
+                    write!(f, "Break")
+                }
+            }
+
+            AstNode::ContinueStatement { level, .. } => {
+                if let Some(l) = level {
+                    write!(f, "Continue({})", l)
+                } else {
+                    write!(f, "Continue")
+                }
+            }
+
+            AstNode::ReturnStatement { exit_code, .. } => {
+                if let Some(code) = exit_code {
+                    write!(f, "Return({})", code)
+                } else {
+                    write!(f, "Return")
+                }
             }
 
             AstNode::Error { message, .. } => write!(f, "Error({})", message),

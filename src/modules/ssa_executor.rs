@@ -27,6 +27,14 @@ pub struct SsaExecutor {
     processes: HashMap<u32, Child>,                 // Track child processes by PID
     foreground_job: Option<usize>,                  // Current foreground job ID
     signal_handlers: HashMap<i32, BasicBlockId>,    // Signal number -> handler block
+    loop_context: Vec<LoopContext>,                 // Stack of loop contexts for break/continue
+}
+
+/// Loop context for tracking break/continue targets
+#[derive(Debug, Clone)]
+struct LoopContext {
+    exit_block: BasicBlockId,      // Target for break
+    update_block: BasicBlockId,    // Target for continue
 }
 
 /// Executable value representation
@@ -155,6 +163,7 @@ impl SsaExecutor {
             processes: HashMap::new(),
             foreground_job: None,
             signal_handlers: HashMap::new(),
+            loop_context: Vec::new(),
         }
     }
 
@@ -247,6 +256,32 @@ impl SsaExecutor {
                 }
                 Instruction::Return(status) => {
                     return self.get_value(*status);
+                }
+                Instruction::Break(level) => {
+                    // Get the loop context level (default 1 for innermost loop)
+                    let loop_level = level.unwrap_or(1) as usize;
+                    if loop_level > 0 && loop_level <= self.loop_context.len() {
+                        let idx = self.loop_context.len() - loop_level;
+                        let exit_block = self.loop_context[idx].exit_block;
+                        self.predecessor_blocks.insert(exit_block, block_id);
+                        return self.execute_block(exit_block, func);
+                    } else {
+                        eprintln!("Warning: break without enclosing loop");
+                        return ExecValue::ExitStatus(1);
+                    }
+                }
+                Instruction::Continue(level) => {
+                    // Get the loop context level (default 1 for innermost loop)
+                    let loop_level = level.unwrap_or(1) as usize;
+                    if loop_level > 0 && loop_level <= self.loop_context.len() {
+                        let idx = self.loop_context.len() - loop_level;
+                        let update_block = self.loop_context[idx].update_block;
+                        self.predecessor_blocks.insert(update_block, block_id);
+                        return self.execute_block(update_block, func);
+                    } else {
+                        eprintln!("Warning: continue without enclosing loop");
+                        return ExecValue::ExitStatus(1);
+                    }
                 }
                 _ => {}
             }
@@ -778,8 +813,8 @@ impl SsaExecutor {
             // Pattern matching and glob expansion
             Instruction::PatternMatch(str, pattern, result) => {
                 let s = self.get_value(*str).as_string();
-                // Simple pattern matching for now
-                let matches = s.contains(pattern);
+                // Use glob pattern matching
+                let matches = self.matches_pattern(&s, pattern);
                 let value = ExecValue::Boolean(matches);
                 self.set_value(*result, value.clone());
                 value
@@ -1360,6 +1395,132 @@ impl SsaExecutor {
         } else {
             eprintln!("process {} not found", pid);
             1
+        }
+    }
+
+    // ============================================
+    // Loop Context Management
+    // ============================================
+
+    /// Check if a word matches a shell glob pattern
+    fn matches_pattern(&self, word: &str, pattern: &str) -> bool {
+        // Handle the exact pattern matching for shell case statements
+        // Supports * (any characters), ? (single character), and [...] (character class)
+        self.pattern_match_recursive(word.chars().collect(), pattern.chars().collect())
+    }
+
+    fn pattern_match_recursive(&self, word: Vec<char>, pattern: Vec<char>) -> bool {
+        let mut w_idx = 0;
+        let mut p_idx = 0;
+
+        while w_idx < word.len() && p_idx < pattern.len() {
+            match pattern[p_idx] {
+                '*' => {
+                    // Try to match zero or more characters
+                    if p_idx + 1 == pattern.len() {
+                        return true; // * at end matches everything
+                    }
+
+                    // Try to match the rest of the pattern
+                    let rest_pattern = pattern[p_idx + 1..].to_vec();
+                    for k in w_idx..=word.len() {
+                        let rest_word = word[k..].to_vec();
+                        if self.pattern_match_recursive(rest_word, rest_pattern.clone()) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+                '?' => {
+                    // Match any single character
+                    w_idx += 1;
+                    p_idx += 1;
+                }
+                '[' => {
+                    // Character class matching - simple implementation
+                    // Find the closing ]
+                    let mut close_idx = p_idx + 1;
+                    while close_idx < pattern.len() && pattern[close_idx] != ']' {
+                        close_idx += 1;
+                    }
+
+                    if close_idx < pattern.len() {
+                        // Extract character class
+                        let char_class = &pattern[p_idx + 1..close_idx];
+                        if w_idx < word.len() {
+                            let matches = char_class.contains(&word[w_idx]);
+                            if matches {
+                                w_idx += 1;
+                                p_idx = close_idx + 1;
+                            } else {
+                                return false;
+                            }
+                        } else {
+                            return false;
+                        }
+                    } else {
+                        // No closing ], treat [ as literal
+                        if w_idx < word.len() && word[w_idx] == '[' {
+                            w_idx += 1;
+                            p_idx += 1;
+                        } else {
+                            return false;
+                        }
+                    }
+                }
+                c => {
+                    // Match exact character
+                    if w_idx < word.len() && word[w_idx] == c {
+                        w_idx += 1;
+                        p_idx += 1;
+                    } else {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // Special case: pattern ends with * and we've consumed all word
+        if p_idx < pattern.len() && pattern[p_idx] == '*' && w_idx == word.len() {
+            p_idx += 1;
+        }
+
+        // Check if we've consumed all of both strings
+        w_idx == word.len() && p_idx == pattern.len()
+    }
+
+    /// Extract loop metadata from block labels to set up loop context
+    fn setup_loop_context(&mut self, func: &Function, block_id: BasicBlockId) {
+        let block = func.get_block(block_id);
+        if let Some(block) = block {
+            if let Some(label) = &block.label {
+                // Detect loop entry blocks and set up context
+                if label.contains("_cond") || label.contains("_body") {
+                    // This might be a loop block, try to find exit and update blocks
+                    // For now, we'll rely on the generator to provide proper structure
+                    // This is a simplification; a real implementation would be more sophisticated
+                }
+            }
+        }
+    }
+
+    /// Get the loop context for break/continue handling
+    fn get_loop_exit_block(&self, level: usize) -> Option<BasicBlockId> {
+        if level > 0 && level <= self.loop_context.len() {
+            let idx = self.loop_context.len() - level;
+            Some(self.loop_context[idx].exit_block)
+        } else {
+            None
+        }
+    }
+
+    /// Get the loop update block for continue
+    fn get_loop_update_block(&self, level: usize) -> Option<BasicBlockId> {
+        if level > 0 && level <= self.loop_context.len() {
+            let idx = self.loop_context.len() - level;
+            Some(self.loop_context[idx].update_block)
+        } else {
+            None
         }
     }
 }

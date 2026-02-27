@@ -65,6 +65,11 @@ pub enum TokenType {
     Select,   // select
     Time,     // time
 
+    // Control flow statements (language-level keywords)
+    Break,    // break
+    Continue, // continue
+    Return,   // return
+
     // ============================================
     // Brackets and Special Characters
     // ============================================
@@ -177,7 +182,10 @@ impl Token {
             | TokenType::While
             | TokenType::Function
             | TokenType::Select
-            | TokenType::Time => true,
+            | TokenType::Time
+            | TokenType::Break
+            | TokenType::Continue
+            | TokenType::Return => true,
             _ => false,
         }
     }
@@ -256,6 +264,9 @@ impl fmt::Display for TokenType {
             TokenType::Function => write!(f, "function"),
             TokenType::Select => write!(f, "select"),
             TokenType::Time => write!(f, "time"),
+            TokenType::Break => write!(f, "break"),
+            TokenType::Continue => write!(f, "continue"),
+            TokenType::Return => write!(f, "return"),
             TokenType::LeftParen => write!(f, "("),
             TokenType::RightParen => write!(f, ")"),
             TokenType::LeftBrace => write!(f, "{{"),
@@ -304,7 +315,8 @@ pub fn is_valid_var_name(name: &str) -> bool {
 pub fn is_reserved_word(word: &str) -> bool {
     match word {
         "!" | "case" | "do" | "done" | "elif" | "else" | "esac" | "fi" | "for" | "if" | "in"
-        | "then" | "until" | "while" | "function" | "select" | "time" => true,
+        | "then" | "until" | "while" | "function" | "select" | "time" | "break" | "continue"
+        | "return" => true,
         _ => false,
     }
 }
@@ -329,6 +341,9 @@ pub fn reserved_word_token_type(word: &str) -> Option<TokenType> {
         "function" => Some(TokenType::Function),
         "select" => Some(TokenType::Select),
         "time" => Some(TokenType::Time),
+        "break" => Some(TokenType::Break),
+        "continue" => Some(TokenType::Continue),
+        "return" => Some(TokenType::Return),
         _ => None,
     }
 }
