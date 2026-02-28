@@ -9,7 +9,9 @@ pub enum TokenType {
     // ============================================
     // Words and Identifiers
     // ============================================
-    Word(String),           // Any word
+    Word(String),           // Unquoted word (no special handling)
+    QuotedString(String),   // Double-quoted string: "..." → QuotedString(content_without_quotes)
+    SingleQuotedString(String), // Single-quoted string: '...' → SingleQuotedString(content_literal)
     AssignmentWord(String), // VAR=value or VAR= (empty assignment)
     Name(String),           // Valid identifier (for variable names)
 
@@ -123,7 +125,16 @@ impl Token {
     }
 
     pub fn is_word(&self) -> bool {
-        matches!(self.token_type, TokenType::Word(_))
+        matches!(self.token_type, TokenType::Word(_) | TokenType::QuotedString(_) | TokenType::SingleQuotedString(_))
+    }
+
+    pub fn get_word_value(&self) -> Option<String> {
+        match &self.token_type {
+            TokenType::Word(s) => Some(s.clone()),
+            TokenType::QuotedString(s) => Some(s.clone()),
+            TokenType::SingleQuotedString(s) => Some(s.clone()),
+            _ => None,
+        }
     }
 
     pub fn is_assignment(&self) -> bool {
@@ -228,6 +239,8 @@ impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             TokenType::Word(s) => write!(f, "Word({})", s),
+            TokenType::QuotedString(s) => write!(f, "QuotedString(\"{}\")", s),
+            TokenType::SingleQuotedString(s) => write!(f, "SingleQuotedString('{}')", s),
             TokenType::AssignmentWord(s) => write!(f, "AssignmentWord({})", s),
             TokenType::Name(s) => write!(f, "Name({})", s),
             TokenType::Newline => write!(f, "\\n"),

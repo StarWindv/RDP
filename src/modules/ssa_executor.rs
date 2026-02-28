@@ -5,11 +5,19 @@ use std::collections::HashMap;
 use std::process::{Child, Command};
 
 #[cfg(unix)]
+use std::fs::OpenOptions;
+#[cfg(unix)]
+use std::os::unix::io::{AsRawFd, FromRawFd};
+
+#[cfg(unix)]
 use std::os::unix::process::CommandExt;
+
+#[cfg(unix)]
+use nix::unistd::{dup2, close, pipe};
 
 use crate::modules::builtins::Builtins;
 use crate::modules::env::ShellEnv;
-use crate::modules::ssa_ir::{BasicBlockId, CmpOp, Function, Instruction, ValueId, ValueType};
+use crate::modules::ssa_ir::{BasicBlockId, CmpOp, Function, Instruction, ValueId, ValueType, RedirectMode};
 use crate::modules::variables::{get_variable_system, VarAttribute};
 
 /// SSA IR Executor - executes SSA IR functions
@@ -361,8 +369,7 @@ impl SsaExecutor {
                     .iter()
                     .map(|arg| {
                         let arg_val = self.get_value(*arg);
-                        // Arguments should already be expanded at SSA IR generation stage
-                        arg_val.as_string()
+                        arg_val.as_string()  // Now already clean - no need to remove quotes
                     })
                     .collect();
 
@@ -390,8 +397,7 @@ impl SsaExecutor {
                     .iter()
                     .map(|arg| {
                         let arg_val = self.get_value(*arg);
-                        // Arguments should already be expanded at SSA IR generation stage
-                        arg_val.as_string()
+                        arg_val.as_string()  // Now already clean - no need to remove quotes
                     })
                     .collect();
 
@@ -479,31 +485,160 @@ impl SsaExecutor {
 
             // Pipeline operations
             Instruction::CreatePipe(read_fd, write_fd) => {
-                // TODO: Implement pipe creation
-                // For now, create dummy file descriptors
-                let read_val = ExecValue::FileDescriptor(3);
-                let write_val = ExecValue::FileDescriptor(4);
-                self.set_value(*read_fd, read_val.clone());
-                self.set_value(*write_fd, write_val.clone());
-                ExecValue::Void
+                #[cfg(unix)]
+                {
+                    match pipe() {
+                        Ok((read, write)) => {
+                            self.set_value(*read_fd, ExecValue::FileDescriptor(read.as_raw_fd() as i32));
+                            self.set_value(*write_fd, ExecValue::FileDescriptor(write.as_raw_fd() as i32));
+                            ExecValue::Void
+                        }
+                        Err(_e) => {
+                            eprintln!("ERROR: Failed to create pipe");
+                            ExecValue::ExitStatus(1)
+                        }
+                    }
+                }
+                #[cfg(not(unix))]
+                {
+                    eprintln!("ERROR: Pipes not supported on this platform");
+                    ExecValue::ExitStatus(1)
+                }
             }
 
-            Instruction::DupFd(_old_fd, new_fd, result) => {
-                // TODO: Implement dup
-                // For now, just return new_fd
-                let value = ExecValue::FileDescriptor(*new_fd);
-                self.set_value(*result, value.clone());
-                value
+            Instruction::DupFd(old_fd_val, new_fd_num, result) => {
+                #[cfg(unix)]
+                {
+                    let old_fd = self.get_value(*old_fd_val).as_fd().unwrap_or(-1);
+                    if old_fd >= 0 {
+                        match dup2(old_fd, *new_fd_num) {
+                            Ok(_) => {
+                                self.set_value(*result, ExecValue::FileDescriptor(*new_fd_num));
+                                ExecValue::Void
+                            }
+                            Err(_e) => {
+                                eprintln!("ERROR: Failed to dup fd {} to {}", old_fd, new_fd_num);
+                                ExecValue::ExitStatus(1)
+                            }
+                        }
+                    } else {
+                        eprintln!("ERROR: Invalid fd for dup");
+                        ExecValue::ExitStatus(1)
+                    }
+                }
+                #[cfg(not(unix))]
+                {
+                    eprintln!("ERROR: FD operations not supported on this platform");
+                    ExecValue::ExitStatus(1)
+                }
             }
 
-            Instruction::CloseFd(_fd) => {
-                // TODO: Implement close
-                ExecValue::Void
+            Instruction::CloseFd(fd_val) => {
+                #[cfg(unix)]
+                {
+                    let fd = self.get_value(*fd_val).as_fd().unwrap_or(-1);
+                    if fd >= 0 {
+                        let _ = close(fd);
+                    }
+                    ExecValue::Void
+                }
+                #[cfg(not(unix))]
+                {
+                    ExecValue::Void
+                }
             }
 
-            Instruction::Redirect(_fd, _target, _mode) => {
-                // TODO: Implement redirection
-                ExecValue::Void
+            Instruction::Redirect(fd_val, target_val, mode) => {
+                #[cfg(unix)]
+                {
+                    let fd = self.get_value(*fd_val).as_fd().unwrap_or(1);
+                    let target = self.get_value(*target_val).as_string();
+                    
+                    match mode {
+                        RedirectMode::Read => {
+                            // < file (open for reading)
+                            match OpenOptions::new().read(true).open(&target) {
+                                Ok(file) => {
+                                    let file_fd = file.as_raw_fd();
+                                    if dup2(file_fd, fd).is_ok() {
+                                        ExecValue::Void
+                                    } else {
+                                        eprintln!("ERROR: Failed to redirect {} < {}", fd, target);
+                                        ExecValue::ExitStatus(1)
+                                    }
+                                }
+                                Err(_e) => {
+                                    eprintln!("ERROR: Cannot open {} for reading", target);
+                                    ExecValue::ExitStatus(1)
+                                }
+                            }
+                        }
+                        RedirectMode::Write => {
+                            // > file (open for writing, truncate)
+                            match OpenOptions::new().write(true).create(true).truncate(true).open(&target) {
+                                Ok(file) => {
+                                    let file_fd = file.as_raw_fd();
+                                    if dup2(file_fd, fd).is_ok() {
+                                        ExecValue::Void
+                                    } else {
+                                        eprintln!("ERROR: Failed to redirect {} > {}", fd, target);
+                                        ExecValue::ExitStatus(1)
+                                    }
+                                }
+                                Err(_e) => {
+                                    eprintln!("ERROR: Cannot open {} for writing", target);
+                                    ExecValue::ExitStatus(1)
+                                }
+                            }
+                        }
+                        RedirectMode::Append => {
+                            // >> file (open for appending)
+                            match OpenOptions::new().write(true).create(true).append(true).open(&target) {
+                                Ok(file) => {
+                                    let file_fd = file.as_raw_fd();
+                                    if dup2(file_fd, fd).is_ok() {
+                                        ExecValue::Void
+                                    } else {
+                                        eprintln!("ERROR: Failed to redirect {} >> {}", fd, target);
+                                        ExecValue::ExitStatus(1)
+                                    }
+                                }
+                                Err(_e) => {
+                                    eprintln!("ERROR: Cannot open {} for appending", target);
+                                    ExecValue::ExitStatus(1)
+                                }
+                            }
+                        }
+                        RedirectMode::ReadWrite => {
+                            // <> file (open for reading and writing)
+                            match OpenOptions::new().read(true).write(true).create(true).open(&target) {
+                                Ok(file) => {
+                                    let file_fd = file.as_raw_fd();
+                                    if dup2(file_fd, fd).is_ok() {
+                                        ExecValue::Void
+                                    } else {
+                                        eprintln!("ERROR: Failed to redirect {} <> {}", fd, target);
+                                        ExecValue::ExitStatus(1)
+                                    }
+                                }
+                                Err(_e) => {
+                                    eprintln!("ERROR: Cannot open {} for reading and writing", target);
+                                    ExecValue::ExitStatus(1)
+                                }
+                            }
+                        }
+                        _ => {
+                            // HereDoc, DupRead, DupWrite modes handled elsewhere
+                            eprintln!("ERROR: Redirect mode {:?} not yet fully implemented", mode);
+                            ExecValue::ExitStatus(1)
+                        }
+                    }
+                }
+                #[cfg(not(unix))]
+                {
+                    eprintln!("ERROR: File redirection not supported on this platform");
+                    ExecValue::ExitStatus(1)
+                }
             }
 
             // String operations

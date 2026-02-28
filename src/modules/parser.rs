@@ -227,8 +227,8 @@ impl<'a> Parser<'a> {
                 token.token_type
             );
             match &token.token_type {
-                TokenType::Word(word) | TokenType::Name(word) => {
-                    println!("DEBUG PARSER SIMPLE_CMD: Word/Name token: '{}'", word);
+                TokenType::Word(word) | TokenType::Name(word) | TokenType::QuotedString(word) | TokenType::SingleQuotedString(word) => {
+                    println!("DEBUG PARSER SIMPLE_CMD: Word/Name/QuotedString token: '{}'", word);
                     // If we have a current arg being built, add this as a new argument
                     if !current_arg.is_empty() {
                         args.push(current_arg.clone());
@@ -359,6 +359,14 @@ impl<'a> Parser<'a> {
                             println!("DEBUG PARSER SIMPLE_CMD: Appended '{}' to current_arg: '{}'", expanded, current_arg);
                         }
                     }
+                }
+                TokenType::Semicolon | TokenType::Newline => {
+                    // Command separators - these mark the end of the current command
+                    println!(
+                        "DEBUG PARSER SIMPLE_CMD: Found command separator: {:?}",
+                        token.token_type
+                    );
+                    break;
                 }
                 _ => {
                     // Unknown token type, break

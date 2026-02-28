@@ -652,8 +652,7 @@ impl SsaIrGenerator {
             return self.generate_null_command();
         }
 
-        let mut last_status = self.create_value(ValueType::ExitStatus);
-        self.add_instruction(Instruction::ConstInt(0, last_status));
+        let mut last_status: Option<ValueId> = None;
 
         for (i, cmd) in commands.iter().enumerate() {
             if i > 0 && i - 1 < separators.len() {
@@ -669,10 +668,10 @@ impl SsaIrGenerator {
             }
 
             let status = self.generate_node(*cmd.clone());
-            last_status = status;
+            last_status = Some(status);
         }
 
-        last_status
+        last_status.unwrap_or_else(|| self.create_const_int(0))
     }
 
     fn generate_compound_command(&mut self, commands: Vec<Box<AstNode>>) -> ValueId {
@@ -1265,9 +1264,8 @@ impl SsaIrGenerator {
     }
 
     fn generate_null_command(&mut self) -> ValueId {
-        let result = self.create_value(ValueType::ExitStatus);
-        self.add_instruction(Instruction::ConstInt(0, result));
-        result
+        // NullCommand doesn't generate any instructions - just return a constant 0 exit status
+        self.create_const_int(0)
     }
 
     fn generate_error(&mut self, message: &str, token: crate::modules::tokens::Token) -> ValueId {

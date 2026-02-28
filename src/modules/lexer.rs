@@ -397,22 +397,22 @@ impl<'a> Lexer<'a> {
     /// Read a single-quoted string
     fn read_single_quoted_string(&mut self, start_line: usize, start_column: usize) -> Token {
         let mut content = String::new();
-        content.push('\'');
+        // Don't include the opening quote - just the content
         self.consume_char(); // Consume opening quote
 
         while let Some(&c) = self.chars.peek() {
             if c == '\'' {
-                content.push(c);
-                self.consume_char();
+                self.consume_char();  // Consume closing quote
                 break;
             }
             content.push(c);
             self.consume_char();
         }
 
+        // Use SingleQuotedString to preserve semantic info
         Token::new(
-            TokenType::Word(content.clone()),
-            content,
+            TokenType::SingleQuotedString(content.clone()),
+            format!("'{}'", content),  // lexeme for logging
             start_line,
             start_column,
         )
@@ -421,7 +421,7 @@ impl<'a> Lexer<'a> {
     /// Read a double-quoted string
     fn read_double_quoted_string(&mut self, start_line: usize, start_column: usize) -> Token {
         let mut content = String::new();
-        content.push('"');
+        // Don't include the opening quote - just the content
         self.consume_char(); // Consume opening quote
 
         let mut escape_next = false;
@@ -431,7 +431,7 @@ impl<'a> Lexer<'a> {
                 // In double quotes, only certain escapes are special
                 match c {
                     '\\' | '"' | '$' | '`' | '\n' => {
-                        // These are properly escaped
+                        // These are properly escaped - store just the character
                         content.push(c);
                     }
                     _ => {
@@ -450,7 +450,7 @@ impl<'a> Lexer<'a> {
                 content.push(c);
                 self.consume_char();
             } else if c == '"' {
-                content.push(c);
+                // Found closing quote - don't include it in content
                 self.consume_char();
                 break;
             } else {
@@ -459,9 +459,10 @@ impl<'a> Lexer<'a> {
             }
         }
 
+        // Use QuotedString to preserve semantic info
         Token::new(
-            TokenType::Word(content.clone()),
-            content,
+            TokenType::QuotedString(content.clone()),
+            format!("\"{}\"", content),  // lexeme for logging
             start_line,
             start_column,
         )

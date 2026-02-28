@@ -11,6 +11,7 @@ pub mod tokens;
 // SSA architecture modules
 pub mod optimize;
 pub mod ssa_executor;
+pub mod ssa_executor_enhanced;
 pub mod ssa_ir;
 pub mod ssa_ir_generator;
 
@@ -30,6 +31,8 @@ pub mod options;
 pub mod options_enhanced;
 pub mod param_expand;
 pub mod pipeline;
+pub mod pipeline_enhanced;
+pub mod process_manager;
 pub mod process_substitution;
 pub mod redirection;
 pub mod subshell;
