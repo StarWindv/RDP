@@ -291,7 +291,7 @@ impl ProcessManager {
             
             // Set up stdout to pipe if not last command
             if !is_last {
-                let pipe = self.create_pipe()?;
+                let mut pipe = self.create_pipe()?;
                 stdout_io = Some(pipe.write_end_as_stdio());
                 previous_stdout = Some(pipe.read_end_as_stdio());
             }
