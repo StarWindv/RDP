@@ -220,6 +220,22 @@ impl<'a> Parser<'a> {
         let mut command_tokens = Vec::new();
         let mut current_arg = String::new(); // Track current argument being built
 
+        // Check for null command (just a semicolon or newline)
+        if let Some(token) = &self.current_token {
+            if token.token_type == TokenType::Semicolon
+                || token.token_type == TokenType::Newline
+            {
+                println!(
+                    "DEBUG PARSER SIMPLE_CMD: Found separator at start, returning NullCommand: {:?}",
+                    token.token_type
+                );
+                // Consume the separator token (it will be handled by parse_command_list)
+                // Actually, we should NOT consume it here - parse_command_list will handle it
+                // Just return NullCommand
+                return Ok(AstNode::NullCommand);
+            }
+        }
+
         // Parse command name and arguments
         while let Some(token) = &self.current_token {
             println!(
@@ -360,10 +376,45 @@ impl<'a> Parser<'a> {
                         }
                     }
                 }
-                TokenType::Semicolon | TokenType::Newline => {
+                // 分号和换行符是命令分隔符，应该在parse_command_list中处理
+                // 当遇到这些token时，我们应该停止解析当前简单命令，让上层处理
+                TokenType::Semicolon | TokenType::Newline | TokenType::Ampersand => {
                     // Command separators - these mark the end of the current command
+                    // 注意：我们不消费这些token，它们由上层parse_command_list处理
                     println!(
-                        "DEBUG PARSER SIMPLE_CMD: Found command separator: {:?}",
+                        "DEBUG PARSER SIMPLE_CMD: Found command separator, stopping: {:?}",
+                        token.token_type
+                    );
+                    break;
+                }
+                // 管道、逻辑操作符也结束简单命令
+                TokenType::Pipe | TokenType::AndIf | TokenType::OrIf => {
+                    println!(
+                        "DEBUG PARSER SIMPLE_CMD: Found operator, stopping: {:?}",
+                        token.token_type
+                    );
+                    break;
+                }
+                // 重定向操作符由专门的parse_redirections处理
+                TokenType::Less | TokenType::Great | TokenType::DLess | TokenType::DGreat |
+                TokenType::LessAnd | TokenType::GreatAnd | TokenType::LessGreat | 
+                TokenType::DLessDash | TokenType::Clobber => {
+                    // 重定向操作符结束参数解析，由专门的parse_redirections处理
+                    println!(
+                        "DEBUG PARSER SIMPLE_CMD: Found redirection operator, stopping: {:?}",
+                        token.token_type
+                    );
+                    break;
+                }
+                // 其他控制结构token也结束简单命令
+                TokenType::If | TokenType::Then | TokenType::Else | TokenType::Elif | TokenType::Fi |
+                TokenType::While | TokenType::Until | TokenType::Do | TokenType::Done |
+                TokenType::For | TokenType::In | TokenType::Case | TokenType::Esac |
+                TokenType::Function | TokenType::LeftBrace | TokenType::RightBrace |
+                TokenType::LeftParen | TokenType::RightParen |
+                TokenType::Break | TokenType::Continue | TokenType::Return => {
+                    println!(
+                        "DEBUG PARSER SIMPLE_CMD: Found control structure token, stopping: {:?}",
                         token.token_type
                     );
                     break;
@@ -396,18 +447,7 @@ impl<'a> Parser<'a> {
             });
         }
 
-        // Check if we have a null command (just a semicolon or newline)
-        if name.is_none() && args.is_empty() && assignments.is_empty() {
-            // Check if we have a separator token
-            if let Some(token) = &self.current_token {
-                if token.token_type == TokenType::Semicolon
-                    || token.token_type == TokenType::Newline
-                {
-                    // This is a null command, which is valid
-                    return Ok(AstNode::NullCommand);
-                }
-            }
-        }
+        // 注意：我们已经处理了NullCommand的情况，所以这里不需要再检查
 
         let name = name.ok_or_else(|| ParseError {
             message: "Expected command name".to_string(),
