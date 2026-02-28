@@ -28,6 +28,7 @@ pub mod false_cmd; // false
 pub mod fg; // fg
 pub mod help; // help
 pub mod jobs; // jobs
+pub mod printenv; // printenv
 pub mod pwd; // pwd
 pub mod test;
 pub mod true_cmd; // true
@@ -67,6 +68,7 @@ pub use fg::Fg;
 pub use help::Help;
 pub use jobs::Jobs;
 pub use local::Local;
+pub use printenv::PrintEnv;
 pub use pwd::Pwd;
 pub use readonly::Readonly;
 pub use return_cmd::Return;

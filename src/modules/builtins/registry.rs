@@ -22,6 +22,7 @@ use super::fg::Fg;
 use super::help::Help;
 use super::jobs::Jobs;
 use super::local::Local;
+use super::printenv::PrintEnv;
 use super::pwd::Pwd;
 use super::readonly::Readonly;
 use super::return_cmd::Return;
@@ -77,6 +78,7 @@ impl BuiltinRegistry {
         registry.register(Box::new(False));
         registry.register(Box::new(Fg));
         registry.register(Box::new(Jobs));
+        registry.register(Box::new(PrintEnv));
         registry.register(Box::new(Pwd));
         registry.register(Box::new(True));
         registry.register(Box::new(Wait));
