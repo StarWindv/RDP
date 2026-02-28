@@ -558,7 +558,7 @@ impl SsaExecutor {
                 #[cfg(unix)]
                 {
                     let fd = self.get_value(*fd_val).as_fd().unwrap_or(1);
-                    let target = self.get_value(*target_val).as_string();
+                    let target = target_val.clone();  // target_val is String, not ValueId
                     
                     match mode {
                         RedirectMode::Read => {
