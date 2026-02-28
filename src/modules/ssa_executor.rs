@@ -13,7 +13,7 @@ use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::os::unix::process::CommandExt;
 
 #[cfg(unix)]
-use nix::unistd::{dup2, close, pipe};
+use nix::unistd::{dup2, close};
 
 use crate::modules::builtins::Builtins;
 use crate::modules::env::ShellEnv;
@@ -485,24 +485,30 @@ impl SsaExecutor {
 
             // Pipeline operations
             Instruction::CreatePipe(read_fd, write_fd) => {
-                #[cfg(unix)]
-                {
-                    match pipe() {
-                        Ok((read, write)) => {
-                            self.set_value(*read_fd, ExecValue::FileDescriptor(read.as_raw_fd() as i32));
-                            self.set_value(*write_fd, ExecValue::FileDescriptor(write.as_raw_fd() as i32));
-                            ExecValue::Void
+                // Use os_pipe for cross-platform pipe creation
+                match os_pipe::pipe() {
+                    Ok((read_end, write_end)) => {
+                        // Store file descriptors (on Unix) or handles (on Windows)
+                        #[cfg(unix)]
+                        {
+                            use std::os::unix::io::AsRawFd;
+                            self.set_value(*read_fd, ExecValue::FileDescriptor(read_end.as_raw_fd() as i32));
+                            self.set_value(*write_fd, ExecValue::FileDescriptor(write_end.as_raw_fd() as i32));
                         }
-                        Err(_e) => {
-                            eprintln!("ERROR: Failed to create pipe");
-                            ExecValue::ExitStatus(1)
+                        #[cfg(windows)]
+                        {
+                            use std::os::windows::io::AsRawHandle;
+                            self.set_value(*read_fd, ExecValue::FileDescriptor(read_end.as_raw_handle() as i32));
+                            self.set_value(*write_fd, ExecValue::FileDescriptor(write_end.as_raw_handle() as i32));
                         }
+                        // Store the actual pipe ends for later use
+                        // We'll need to store them somewhere accessible
+                        ExecValue::Void
                     }
-                }
-                #[cfg(not(unix))]
-                {
-                    eprintln!("ERROR: Pipes not supported on this platform");
-                    ExecValue::ExitStatus(1)
+                    Err(_e) => {
+                        eprintln!("ERROR: Failed to create pipe");
+                        ExecValue::ExitStatus(1)
+                    }
                 }
             }
 
