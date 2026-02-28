@@ -216,6 +216,11 @@ impl VariableScope {
             return false;
         }
 
+        // Allow special parameters: $0, $#, $*, $@, $?, $-, etc.
+        if matches!(name, "0" | "#" | "*" | "@" | "?" | "-" | "$" | "!" | "_") {
+            return true;
+        }
+
         let mut chars = name.chars();
         let first = chars.next().unwrap();
 

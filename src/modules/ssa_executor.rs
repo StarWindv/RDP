@@ -167,6 +167,11 @@ impl SsaExecutor {
         }
     }
 
+    /// Register a user-defined function
+    pub fn register_function(&mut self, name: String, func: Function) {
+        self.functions.insert(name, func);
+    }
+
     /// Execute a function
     pub fn execute_function(&mut self, func: &Function) -> i32 {
         // Store function

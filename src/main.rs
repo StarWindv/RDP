@@ -94,6 +94,12 @@ fn parse_and_execute_ssa(input: &str) -> Result<i32, String> {
 
     // SSA Execution
     let mut executor = SsaExecutor::new();
+    
+    // Register all user-defined functions
+    for (name, func) in generator.functions.iter() {
+        executor.register_function(name.clone(), func.clone());
+    }
+    
     let exit_status = executor.execute_function(&ssa_func);
 
     println!("DEBUG: Execution completed with status: {}", exit_status);

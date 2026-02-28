@@ -7,6 +7,7 @@ use crate::modules::ast::{
 use crate::modules::ssa_ir::{
     BasicBlockId, CmpOp, Function, Instruction, IrBuilder, ParamExpandOp, ValueId, ValueType,
 };
+use std::collections::{HashMap, HashSet};
 
 /// SSA IR Generator
 pub struct SsaIrGenerator {
@@ -14,6 +15,10 @@ pub struct SsaIrGenerator {
     current_function: Option<Function>,
     current_block: Option<BasicBlockId>,
     value_counter: usize,
+    /// Registry of defined functions (function names)
+    defined_functions: HashSet<String>,
+    /// Compiled functions (name -> Function)
+    pub functions: HashMap<String, Function>,
 }
 
 impl SsaIrGenerator {
@@ -24,6 +29,8 @@ impl SsaIrGenerator {
             current_function: None,
             current_block: None,
             value_counter: 1, // Start from 1
+            defined_functions: HashSet::new(),
+            functions: HashMap::new(),
         }
     }
 
@@ -215,17 +222,22 @@ impl SsaIrGenerator {
             })
             .collect();
 
-        // Check if it's a built-in command
-        // TODO: Actually check if it's a builtin
-        // For now, we'll treat all commands as external and let the executor handle builtins
-        // But we need to add builtin support in the executor
-
-        // Generate call instruction
-        self.add_instruction(Instruction::CallExternal(
-            name.to_string(),
-            arg_values,
-            result,
-        ));
+        // Check if it's a user-defined function
+        if self.defined_functions.contains(name) {
+            // It's a user-defined function, use CallFunction
+            self.add_instruction(Instruction::CallFunction(
+                name.to_string(),
+                arg_values,
+                result,
+            ));
+        } else {
+            // It's an external command
+            self.add_instruction(Instruction::CallExternal(
+                name.to_string(),
+                arg_values,
+                result,
+            ));
+        }
 
         result
     }
@@ -997,6 +1009,9 @@ impl SsaIrGenerator {
         // Function definition: name() { body; }
         // In SSA IR, we create a new function
 
+        // Register function name in defined_functions
+        self.defined_functions.insert(name.to_string());
+
         // Create a new function with parameters
         let func_name = format!("func_{}", name);
         let params = vec![
@@ -1022,10 +1037,6 @@ impl SsaIrGenerator {
             .begin_function(func_name.clone(), params.clone());
         self.current_block = Some(BasicBlockId(0));
 
-        // Store function in registry
-        // For now, we'll create a placeholder
-        // In a full implementation, we would store the function body
-
         // Generate function body
         let mut last_status = self.create_value(ValueType::ExitStatus);
         self.add_instruction(Instruction::ConstInt(0, last_status));
@@ -1041,20 +1052,13 @@ impl SsaIrGenerator {
         // End function and get it
         let func = self.builder.end_function().expect("Function should exist");
 
-        // TODO: Store function in a function registry
+        // Store the function in our function registry using the original name
+        self.functions.insert(name.to_string(), func);
 
         // Restore previous context
         self.builder = old_builder;
         self.current_function = old_current_function;
         self.current_block = old_current_block;
-
-        // Create a function value placeholder
-        let func_val = self.create_value_with_name(ValueType::String, name.to_string());
-
-        // Store function name (placeholder for actual function)
-        let func_name_val = self.create_value(ValueType::String);
-        self.add_instruction(Instruction::ConstString(name.to_string(), func_name_val));
-        self.add_instruction(Instruction::Store(func_val, func_name_val));
 
         // Return success status
         let result = self.create_value(ValueType::ExitStatus);
