@@ -460,44 +460,118 @@ impl<'a> Parser<'a> {
         let mut current_command = command;
 
         while let Some(token) = self.current_token.clone() {
-            let token_type = token.token_type.clone();
-            let (redirect_type, fd, target) = match token_type {
-                TokenType::Less => (RedirectType::Input, None, self.parse_redirect_target()?),
-                TokenType::Great => (RedirectType::Output, None, self.parse_redirect_target()?),
-                TokenType::DLess => (RedirectType::HereDoc, None, self.parse_redirect_target()?),
-                TokenType::DGreat => (RedirectType::Append, None, self.parse_redirect_target()?),
-                TokenType::LessAnd => (RedirectType::DupInput, None, self.parse_redirect_target()?),
-                TokenType::GreatAnd => {
-                    (RedirectType::DupOutput, None, self.parse_redirect_target()?)
+            // Parse a redirection
+                if let Some((redirect_type, fd, target)) = self.parse_redirection()? {
+                    current_command = AstNode::Redirection {
+                        command: Box::new(current_command),
+                        redirect_type,
+                        target,
+                        fd,
+                        token,
+                    };
+                } else {
+                    // Not a redirection, break
+                    break;
                 }
-                TokenType::LessGreat => {
-                    (RedirectType::ReadWrite, None, self.parse_redirect_target()?)
-                }
-                TokenType::DLessDash => (
-                    RedirectType::HereDocStrip,
-                    None,
-                    self.parse_redirect_target()?,
-                ),
-                TokenType::Clobber => (RedirectType::Clobber, None, self.parse_redirect_target()?),
-                _ => break,
-            };
-
-            current_command = AstNode::Redirection {
-                command: Box::new(current_command),
-                redirect_type,
-                target,
-                fd,
-                token,
-            };
         }
 
         Ok(current_command)
     }
 
-    /// Parse redirection target (file descriptor or filename)
-    fn parse_redirect_target(&mut self) -> Result<String, ParseError> {
-        self.advance(); // Skip redirect operator
+    /// Parse a single redirection (could be with file descriptor number)
+    fn parse_redirection(&mut self) -> Result<Option<(RedirectType, Option<i32>, String)>, ParseError> {
+        // Check if we have a file descriptor number before redirection operator
+        let mut fd: Option<i32> = None;
+        
+        // Look ahead to see if we have a number followed by a redirection operator
+        if let Some(token) = self.current_token.clone() {
+            if let TokenType::Number(n) = &token.token_type {
+                // Save the number as potential file descriptor
+                fd = Some(*n);
+                
+                // Check if next token is a redirection operator
+                let saved_tokens = self.tokens.clone();
+                let saved_current_token = self.current_token.clone();
+                
+                // Advance past the number
+                self.advance();
+                
+                if let Some(next_token) = self.current_token.clone() {
+                    if next_token.is_redirect_operator() {
+                        // This is a numbered redirection (e.g., 2>)
+                        let token = next_token;
+                        let (redirect_type, target) = self.parse_redirect_operator(&token.token_type)?;
+                        
+                        // Restore position for actual parsing
+                        self.tokens = saved_tokens;
+                        self.current_token = saved_current_token;
+                        
+                        // Now parse for real
+                        self.advance(); // Skip number
+                        self.advance(); // Skip operator
+                        let target_str = self.parse_redirect_target()?;
+                        
+                        return Ok(Some((redirect_type, fd, target_str)));
+                    }
+                }
+                
+                // Not a redirection, restore and continue
+                self.tokens = saved_tokens;
+                self.current_token = saved_current_token;
+            }
+        }
+        
+        // Regular redirection (no file descriptor number)
+        if let Some(token) = self.current_token.clone() {
+            if token.is_redirect_operator() {
+                let redirect_type = match &token.token_type {
+                    TokenType::Less => RedirectType::Input,
+                    TokenType::Great => RedirectType::Output,
+                    TokenType::DLess => RedirectType::HereDoc,
+                    TokenType::DGreat => RedirectType::Append,
+                    TokenType::LessAnd => RedirectType::DupInput,
+                    TokenType::GreatAnd => RedirectType::DupOutput,
+                    TokenType::LessGreat => RedirectType::ReadWrite,
+                    TokenType::DLessDash => RedirectType::HereDocStrip,
+                    TokenType::Clobber => RedirectType::Clobber,
+                    _ => return Ok(None), // Not a redirection operator
+                };
+                
+                self.advance();
+                let target = self.parse_redirect_target()?;
+                return Ok(Some((redirect_type, fd, target)));
+            }
+        }
+        
+        Ok(None)
+    }
+    
+    /// Parse redirect operator and return redirect type
+    fn parse_redirect_operator(&self, token_type: &TokenType) -> Result<(RedirectType, String), ParseError> {
+        match token_type {
+            TokenType::Less => Ok((RedirectType::Input, "<".to_string())),
+            TokenType::Great => Ok((RedirectType::Output, ">".to_string())),
+            TokenType::DLess => Ok((RedirectType::HereDoc, "<<".to_string())),
+            TokenType::DGreat => Ok((RedirectType::Append, ">>".to_string())),
+            TokenType::LessAnd => Ok((RedirectType::DupInput, "<&".to_string())),
+            TokenType::GreatAnd => Ok((RedirectType::DupOutput, ">&".to_string())),
+            TokenType::LessGreat => Ok((RedirectType::ReadWrite, "<>".to_string())),
+            TokenType::DLessDash => Ok((RedirectType::HereDocStrip, "<<-".to_string())),
+            TokenType::Clobber => Ok((RedirectType::Clobber, ">|".to_string())),
+            _ => Err(ParseError {
+                message: "Not a redirect operator".to_string(),
+                token: Token::new(
+                    TokenType::Error("Invalid operator".to_string()),
+                    "".to_string(),
+                    1,
+                    1,
+                ),
+            }),
+        }
+    }
 
+    /// Parse redirection target (file descriptor, filename, or here-doc delimiter)
+    fn parse_redirect_target(&mut self) -> Result<String, ParseError> {
         if let Some(token) = self.current_token.clone() {
             match token.token_type {
                 TokenType::Word(word) => {
@@ -508,12 +582,33 @@ impl<'a> Parser<'a> {
                     self.advance();
                     return Ok(n.to_string());
                 }
+                TokenType::Name(name) => {
+                    self.advance();
+                    return Ok(name.clone());
+                }
+                TokenType::QuotedString(s) => {
+                    self.advance();
+                    return Ok(s.clone());
+                }
+                TokenType::SingleQuotedString(s) => {
+                    self.advance();
+                    return Ok(s.clone());
+                }
+                TokenType::AssignmentWord(value) => {
+                    self.advance();
+                    return Ok(value.clone());
+                }
+                // For here-document, the delimiter is a word
+                TokenType::HereDocDelimiter(delim) => {
+                    self.advance();
+                    return Ok(delim.clone());
+                }
                 _ => {}
             }
         }
 
         Err(ParseError {
-            message: "Expected filename or file descriptor after redirection operator".to_string(),
+            message: "Expected filename, file descriptor, or here-document delimiter after redirection operator".to_string(),
             token: self.current_token.clone().unwrap_or_else(|| {
                 Token::new(
                     TokenType::Error("No token".to_string()),

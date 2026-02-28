@@ -4,7 +4,7 @@
 
 use crate::modules::process_manager::{ProcessManager, ProcessBuilder};
 use std::process::Stdio;
-use std::io::{Read, Write, Seek};
+use std::io::{Write, Seek};
 use tempfile::NamedTempFile;
 
 /// Pipeline executor for POSIX Shell

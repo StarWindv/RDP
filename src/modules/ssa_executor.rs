@@ -7,7 +7,7 @@ use std::process::{Child, Command};
 #[cfg(unix)]
 use std::fs::OpenOptions;
 #[cfg(unix)]
-use std::os::unix::io::{AsRawFd, FromRawFd};
+use std::os::unix::io::AsRawFd;
 
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;

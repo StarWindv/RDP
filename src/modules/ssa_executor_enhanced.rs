@@ -3,14 +3,14 @@
 //! This version integrates the new ProcessManager and PipelineExecutor.
 
 use std::collections::HashMap;
-use std::process::{Child, Command};
+use std::process::Child;
 
 use crate::modules::builtins::Builtins;
 use crate::modules::env::ShellEnv;
 use crate::modules::process_manager::ProcessManager;
 use crate::modules::pipeline_enhanced::PipelineExecutor;
-use crate::modules::ssa_ir::{BasicBlockId, CmpOp, Function, Instruction, ValueId, ValueType, RedirectMode};
-use crate::modules::variables::{get_variable_system, VarAttribute};
+use crate::modules::ssa_ir::{BasicBlockId, Function, Instruction, ValueId, ValueType};
+use crate::modules::variables::get_variable_system;
 
 /// SSA IR Executor - executes SSA IR programs with proper shell semantics
 pub struct SsaExecutor {

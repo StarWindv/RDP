@@ -62,7 +62,7 @@ impl Pipe {
     pub fn new() -> std::io::Result<Self> {
         #[cfg(unix)]
         {
-            use std::os::unix::io::{AsRawFd, FromRawFd};
+            
             
             // Use os_pipe crate for Unix pipes
             let (read_end, write_end) = os_pipe::pipe()?;
@@ -213,7 +213,7 @@ impl ProcessManager {
         #[cfg(unix)]
         {
             use nix::unistd::{fork, ForkResult};
-            use nix::unistd::Pid;
+            
             
             unsafe {
                 match fork()? {
