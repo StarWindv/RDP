@@ -3,7 +3,6 @@
 //! This module provides a unified interface for process creation, management,
 //! and inter-process communication that works on both Unix and Windows platforms.
 
-use std::io::{Read, Write};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 
@@ -47,10 +46,15 @@ impl ProcessHandle {
 }
 
 /// Pipe for inter-process communication
-#[derive(Debug)]
 pub struct Pipe {
-    pub read_end: Option<Box<dyn Read + Send>>,
-    pub write_end: Option<Box<dyn Write + Send>>,
+    #[cfg(unix)]
+    pub read_end: Option<os_pipe::PipeReader>,
+    #[cfg(unix)]
+    pub write_end: Option<os_pipe::PipeWriter>,
+    #[cfg(windows)]
+    pub read_end: Option<os_pipe::PipeReader>,
+    #[cfg(windows)]
+    pub write_end: Option<os_pipe::PipeWriter>,
 }
 
 impl Pipe {
@@ -59,13 +63,12 @@ impl Pipe {
         #[cfg(unix)]
         {
             use std::os::unix::io::{AsRawFd, FromRawFd};
-            use std::os::fd::OwnedFd;
             
             // Use os_pipe crate for Unix pipes
             let (read_end, write_end) = os_pipe::pipe()?;
             Ok(Self {
-                read_end: Some(Box::new(read_end)),
-                write_end: Some(Box::new(write_end)),
+                read_end: Some(read_end),
+                write_end: Some(write_end),
             })
         }
         
@@ -74,8 +77,8 @@ impl Pipe {
             // Use os_pipe crate for Windows pipes
             let (read_end, write_end) = os_pipe::pipe()?;
             Ok(Self {
-                read_end: Some(Box::new(read_end)),
-                write_end: Some(Box::new(write_end)),
+                read_end: Some(read_end),
+                write_end: Some(write_end),
             })
         }
     }
@@ -229,7 +232,7 @@ impl ProcessManager {
         {
             // Windows doesn't have fork, so we simulate it by creating a new process
             // that immediately exits. The parent gets a real PID.
-            let handle = self.spawn("cmd", &["/c", "exit", "0"])?;
+            let handle = self.spawn("cmd", &["/c".to_string(), "exit".to_string(), "0".to_string()])?;
             Ok(handle.id())
         }
     }
