@@ -230,6 +230,13 @@ impl SsaIrGenerator {
                 arg_values,
                 result,
             ));
+        } else if self.is_builtin_command(name) {
+            // It's a builtin command, use CallBuiltin
+            self.add_instruction(Instruction::CallBuiltin(
+                name.to_string(),
+                arg_values,
+                result,
+            ));
         } else {
             // It's an external command
             self.add_instruction(Instruction::CallExternal(
@@ -240,6 +247,19 @@ impl SsaIrGenerator {
         }
 
         result
+    }
+
+    /// Check if a command name is a builtin command
+    fn is_builtin_command(&self, name: &str) -> bool {
+        matches!(
+            name,
+            // Special builtins
+            ":" | "." | "break" | "continue" | "eval" | "exec" | "exit" | "export" | "readonly" 
+            | "return" | "set" | "shift" | "times" | "trap" | "unset" | "local"
+            // Standard builtins
+            | "alias" | "bg" | "cd" | "echo" | "false" | "fg" | "help" | "jobs" | "printenv"
+            | "pwd" | "true" | "wait" | "test" | "[" | "]"
+        )
     }
 
     /// Check if a string needs expansion (contains $, `, etc.)
