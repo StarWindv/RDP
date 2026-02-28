@@ -1,105 +1,37 @@
 DEBUG: Parsing input: #!/bin/sh
-# Simple local variable test - no parameter expansion
-
-test_local_simple() {
-    local X="local"
-    echo X_local
+test_func() {
+    return 0
 }
 
-Y="global"
-echo Y_global
-test_local_simple
-echo Y_global_after
+test_func
 
-DEBUG: Lexer produced 29 tokens
+DEBUG: Lexer produced 14 tokens
 DEBUG TOKEN 0: Newline
-DEBUG TOKEN 1: Newline
-DEBUG TOKEN 2: Newline
-DEBUG TOKEN 3: Name("test_local_simple")
-DEBUG TOKEN 4: LeftParen
-DEBUG TOKEN 5: RightParen
-DEBUG TOKEN 6: LeftBrace
-DEBUG TOKEN 7: Newline
-DEBUG TOKEN 8: Name("local")
-DEBUG TOKEN 9: AssignmentWord("X=")
-DEBUG TOKEN 10: Word("\"local\"")
+DEBUG TOKEN 1: Name("test_func")
+DEBUG TOKEN 2: LeftParen
+DEBUG TOKEN 3: RightParen
+DEBUG TOKEN 4: LeftBrace
+DEBUG TOKEN 5: Newline
+DEBUG TOKEN 6: Return
+DEBUG TOKEN 7: Word("0")
+DEBUG TOKEN 8: Newline
+DEBUG TOKEN 9: RightBrace
+DEBUG TOKEN 10: Newline
 DEBUG TOKEN 11: Newline
-DEBUG TOKEN 12: Name("echo")
-DEBUG TOKEN 13: Name("X_local")
-DEBUG TOKEN 14: Newline
-DEBUG TOKEN 15: RightBrace
-DEBUG TOKEN 16: Newline
-DEBUG TOKEN 17: Newline
-DEBUG TOKEN 18: AssignmentWord("Y=")
-DEBUG TOKEN 19: Word("\"global\"")
-DEBUG TOKEN 20: Newline
-DEBUG TOKEN 21: Name("echo")
-DEBUG TOKEN 22: Name("Y_global")
-DEBUG TOKEN 23: Newline
-DEBUG TOKEN 24: Name("test_local_simple")
-DEBUG TOKEN 25: Newline
-DEBUG TOKEN 26: Name("echo")
-DEBUG TOKEN 27: Name("Y_global_after")
-DEBUG TOKEN 28: Newline
+DEBUG TOKEN 12: Name("test_func")
+DEBUG TOKEN 13: Newline
 DEBUG PARSER: Starting parse
 DEBUG PARSER SIMPLE_CMD: Processing token: Newline
 DEBUG PARSER SIMPLE_CMD: Unknown token type, breaking: Newline
 DEBUG PARSER SIMPLE_CMD: Processing token: Newline
 DEBUG PARSER SIMPLE_CMD: Unknown token type, breaking: Newline
-DEBUG PARSER SIMPLE_CMD: Processing token: Newline
-DEBUG PARSER SIMPLE_CMD: Unknown token type, breaking: Newline
-DEBUG PARSER SIMPLE_CMD: Processing token: Name("local")
-DEBUG PARSER SIMPLE_CMD: Word/Name token: 'local'
-DEBUG PARSER SIMPLE_CMD: Set command name to 'local'
-DEBUG PARSER SIMPLE_CMD: Processing token: AssignmentWord("X=")
-DEBUG PARSER SIMPLE_CMD: AssignmentWord token: 'X='
-DEBUG PARSER SIMPLE_CMD: Added argument 'X=' (assignment word), args now: ["X="]
-DEBUG PARSER SIMPLE_CMD: Processing token: Word("\"local\"")
-DEBUG PARSER SIMPLE_CMD: Word/Name token: '"local"'
-DEBUG PARSER SIMPLE_CMD: Added argument '"local"', args now: ["X=", "\"local\""]
-DEBUG PARSER SIMPLE_CMD: Processing token: Newline
-DEBUG PARSER SIMPLE_CMD: Unknown token type, breaking: Newline
-DEBUG PARSER SIMPLE_CMD: Processing token: Name("echo")
-DEBUG PARSER SIMPLE_CMD: Word/Name token: 'echo'
-DEBUG PARSER SIMPLE_CMD: Set command name to 'echo'
-DEBUG PARSER SIMPLE_CMD: Processing token: Name("X_local")
-DEBUG PARSER SIMPLE_CMD: Word/Name token: 'X_local'
-DEBUG PARSER SIMPLE_CMD: Added argument 'X_local', args now: ["X_local"]
-DEBUG PARSER SIMPLE_CMD: Processing token: Newline
-DEBUG PARSER SIMPLE_CMD: Unknown token type, breaking: Newline
-DEBUG PARSER SIMPLE_CMD: Processing token: Newline
-DEBUG PARSER SIMPLE_CMD: Unknown token type, breaking: Newline
-DEBUG PARSER SIMPLE_CMD: Processing token: AssignmentWord("Y=")
-DEBUG PARSER SIMPLE_CMD: AssignmentWord token: 'Y='
-DEBUG PARSER SIMPLE_CMD: Added assignment: Y=
-DEBUG PARSER SIMPLE_CMD: Processing token: Word("\"global\"")
-DEBUG PARSER SIMPLE_CMD: Word/Name token: '"global"'
-DEBUG PARSER SIMPLE_CMD: Set command name to '"global"'
-DEBUG PARSER SIMPLE_CMD: Processing token: Newline
-DEBUG PARSER SIMPLE_CMD: Unknown token type, breaking: Newline
-DEBUG PARSER SIMPLE_CMD: Processing token: Name("echo")
-DEBUG PARSER SIMPLE_CMD: Word/Name token: 'echo'
-DEBUG PARSER SIMPLE_CMD: Set command name to 'echo'
-DEBUG PARSER SIMPLE_CMD: Processing token: Name("Y_global")
-DEBUG PARSER SIMPLE_CMD: Word/Name token: 'Y_global'
-DEBUG PARSER SIMPLE_CMD: Added argument 'Y_global', args now: ["Y_global"]
-DEBUG PARSER SIMPLE_CMD: Processing token: Newline
-DEBUG PARSER SIMPLE_CMD: Unknown token type, breaking: Newline
-DEBUG PARSER SIMPLE_CMD: Processing token: Name("test_local_simple")
-DEBUG PARSER SIMPLE_CMD: Word/Name token: 'test_local_simple'
-DEBUG PARSER SIMPLE_CMD: Set command name to 'test_local_simple'
-DEBUG PARSER SIMPLE_CMD: Processing token: Newline
-DEBUG PARSER SIMPLE_CMD: Unknown token type, breaking: Newline
-DEBUG PARSER SIMPLE_CMD: Processing token: Name("echo")
-DEBUG PARSER SIMPLE_CMD: Word/Name token: 'echo'
-DEBUG PARSER SIMPLE_CMD: Set command name to 'echo'
-DEBUG PARSER SIMPLE_CMD: Processing token: Name("Y_global_after")
-DEBUG PARSER SIMPLE_CMD: Word/Name token: 'Y_global_after'
-DEBUG PARSER SIMPLE_CMD: Added argument 'Y_global_after', args now: ["Y_global_after"]
+DEBUG PARSER SIMPLE_CMD: Processing token: Name("test_func")
+DEBUG PARSER SIMPLE_CMD: Word/Name token: 'test_func'
+DEBUG PARSER SIMPLE_CMD: Set command name to 'test_func'
 DEBUG PARSER SIMPLE_CMD: Processing token: Newline
 DEBUG PARSER SIMPLE_CMD: Unknown token type, breaking: Newline
 DEBUG PARSER: Parse successful, AST type: Discriminant(6)
-DEBUG: Parser produced AST: CommandList(NullCommand \n NullCommand \n NullCommand \n FunctionDefinition(test_local_simple() { SimpleCommand(local X= "local"); SimpleCommand(echo X_local); }) \n NullCommand \n CompoundCommand{ Assignment(Y=); SimpleCommand("global"); } \n SimpleCommand(echo Y_global) \n SimpleCommand(test_local_simple) \n SimpleCommand(echo Y_global_after))
+DEBUG: Parser produced AST: CommandList(NullCommand \n FunctionDefinition(test_func() { Return(0); }) \n NullCommand \n SimpleCommand(test_func))
 DEBUG: SSA IR generated:
 function main(
 ) {
@@ -108,20 +40,8 @@ function main(
     %2 = const_int 0
     %3 = const_int 0
     %4 = const_int 0
-    %5 = const_int 0
-    %6 = const_int 0
-    %7 = const_int 0
-    %8 = alloc_var 'Y'
-    %9 = const_string ''
-    store %8 %9
-    %10 = const_int 0
-    %11 = call_external '"global"'
-    %13 = const_string 'Y_global'
-    %12 = call_external 'echo' %13
-    %14 = call_function 'test_local_simple'
-    %16 = const_string 'Y_global_after'
-    %15 = call_external 'echo' %16
-    return %15
+    %5 = call_function 'test_func'
+    return %5
 }
 
-Y_global
+DEBUG: Execution completed with status: 0

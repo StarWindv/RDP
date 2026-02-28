@@ -1,7 +1,6 @@
 #!/bin/sh
 test_func() {
-    true
+    return 0
 }
 
 test_func
-true
