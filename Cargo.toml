@@ -1,31 +1,10 @@
 [package]
-name = "rs-dash-pro"
-version = "0.0.2+Canary"
-edition = "2021"
-description = "A POSIX-compatible shell implementation in Rust with modern architecture"
-authors = ["rs-dash-pro contributors"]
-license = "MIT"
-readme = "README.md"
+name = "rdp"
+version = "0.1.0"
+edition = "2024"
+authors = ["星灿长风v(StarWindv)"]
 
 [dependencies]
-anyhow = "1.0"
-thiserror = "1.0"
-log = "0.4"
-env_logger = "0.11"
-once_cell = "1.19"
-lazy_static = "1.4"
-tempfile = "3.10"
-nix = { version = "0.27", features = ["process", "signal", "term", "fs"] }
-libc = "0.2"
-os_pipe = "1.1"
-
-[dev-dependencies]
-tempfile = "3.10"
-assert_cmd = "2.0"
-predicates = "3.0"
-
-[profile.release]
-lto = true
-codegen-units = 1
-opt-level = 3
-
+argh = "0.1.14"
+nix = "0.31.2"
+os_pipe = "1.2.3"
