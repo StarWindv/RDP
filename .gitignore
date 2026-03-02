@@ -2,3 +2,5 @@
 /*.md
 /target
 /yash-tests
+
+renamedir.py
