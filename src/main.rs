@@ -1,9 +1,8 @@
-use rdp::modules::{
-    utils::tools::Tools
-};
-
+use rdp::modules::cli::parse::Cli;
 
 fn main() {
-    println!("{}", Tools::build_usage());
-    println!("\n{}", Tools::build_version());
+    let argv = Cli::run();
+    match argv {
+        _ => {}, // TODO: args allocator
+    }
 }

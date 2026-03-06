@@ -1,3 +1,1 @@
-pub mod tools;
-
-pub use tools::Tools;
+pub mod rich;
