@@ -15,20 +15,32 @@ lazy_static! {
     static ref HEX_COLOR_REGEX: Regex = Regex::new(r"^[0-9a-fA-F]+$").unwrap();
     static ref COLOR_CONSTANTS: HashMap<&'static str, &'static str> = {
         let mut map = HashMap::new();
-        map.insert("Red", RED);
-        map.insert("Orange", ORANGE);
-        map.insert("Yellow", YELLOW);
-        map.insert("Green", GREEN);
-        map.insert("Cyan", CYAN);
-        map.insert("Blue", BLUE);
-        map.insert("Purple", PURPLE);
-        map.insert("Reset", RESET);
-        map.insert("Bold", BOLD);
-        map.insert("HyperStart", HYPER_START);
-        map.insert("HyperText", HYPER_TEXT);
-        map.insert("HyperEnd", HYPER_END);
-        map.insert("Underline", UNDERLINE);
-        map.insert("LastStart", LAST_START);
+        map.insert("Red"   , RED    );
+        map.insert("Orange", ORANGE );
+        map.insert("Yellow", YELLOW );
+        map.insert("Green" , GREEN  );
+        map.insert("Cyan"  , CYAN   );
+        map.insert("Blue"  , BLUE   );
+        map.insert("Purple", PURPLE );
+
+        map.insert("Bold"     , BOLD      );
+        map.insert("CleanBold", CLEAN_BOLD);
+
+        map.insert("Underline"     , UNDERLINE      );
+        map.insert("CleanUnderline", CLEAN_UNDERLINE);
+
+        map.insert("LastStart" , LAST_START  );
+
+        map.insert("HyperStart", HYPER_START );
+        map.insert("HyperText" , HYPER_TEXT  );
+        map.insert("HyperEnd"  , HYPER_END   );
+
+        map.insert("ItalicStart", ITALIC_START );
+        map.insert("ItalicEnd"  , ITALIC_END   );
+
+        map.insert("Reset"  , RESET_ALL );
+        map.insert("ResetFg", RESET_FG  );
+        map.insert("ResetBg", RESET_BG  );
         map
     };
 }

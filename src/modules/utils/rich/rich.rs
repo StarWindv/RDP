@@ -67,7 +67,7 @@ impl Rich {
     }
 
     pub fn color_match(input: &str) -> HashMap<String, String> {
-        Rich::extract_bracket_content(input, '[', ']', 1, 13, true)
+        Rich::extract_bracket_content(input, '[', ']', 1, 14, true)
     }
 
     pub fn tag_match(input: &str) -> HashMap<String, String> {
@@ -78,12 +78,12 @@ impl Rich {
         source.matches(target).count() == expected_count
     }
 
-    pub fn parse_colors(mut input: String) -> String {
+    pub fn parse_colors(mut input: String, clean: bool) -> String {
         let color_tags = Rich::color_match(&input);
 
         for (tag, content) in color_tags {
             if content == "/" {
-                input = input.replace(&tag, super::RESET);
+                input = input.replace(&tag, super::RESET_ALL);
                 continue;
             }
             let (is_background, color_value) = if content.starts_with("bg-") {
@@ -94,11 +94,13 @@ impl Rich {
 
             let color_code = Self::value_process(color_value, is_background)
                 .unwrap_or_else(|| String::new());
-            if !color_code.is_empty() {
+            if !color_code.is_empty() && !clean {
                 input = input.replace(&tag, &color_code);
+            } else if clean {
+                input = input.replace(&tag, "");
             }
         }
-        input + super::RESET
+        input + super::RESET_ALL
     }
 
     fn value_process(value: &str, is_background: bool) -> Option<String> {
@@ -154,7 +156,7 @@ impl Rich {
             }
         }
         // 最后加上重置码
-        input + super::RESET
+        input + super::RESET_ALL
     }
 
     pub fn outline(input: &str) {
@@ -176,6 +178,10 @@ impl Rich {
     }
 
     pub fn process(input: &str) -> String {
-        Rich::parse_tags(Rich::parse_colors(input.to_string()))
+        Rich::parse_tags(Rich::parse_colors(input.to_string(), false))
+    }
+
+    pub fn clean(input: &str) -> String {
+        Rich::parse_tags(Rich::parse_colors(input.to_string(), true))
     }
 }
