@@ -1,6 +1,8 @@
 pub mod colors;
 pub mod rich;
 
+
+// Front Colors
 macro_rules! red    { () => { "\x1B[31m" }; }
 macro_rules! orange { () => { "\x1B[38;2;255;165;0m" }; }
 macro_rules! yellow { () => { "\x1B[38;5;220m" }; }
@@ -9,6 +11,7 @@ macro_rules! cyan   { () => { "\x1B[36m" }; }
 macro_rules! blue   { () => { "\x1B[34m" }; }
 macro_rules! purple { () => { "\x1B[35m" }; }
 
+// Styles
 macro_rules! bold        { () => { "\x1B[1m"  }; }
 macro_rules! clean_bold  { () => { "\x1B[22m" }; }
 
@@ -24,6 +27,7 @@ macro_rules! hyper_end   { () => { "\x1B]8;;\x07"  }; }
 macro_rules! italic_start   { () => { "\x1B3m"  }; }
 macro_rules! italic_end     { () => { "\x1B23m"  }; }
 
+// Reset
 macro_rules! reset_all   { () => { "\x1B[0m"  }; }
 macro_rules! reset_fg    { () => { "\x1B[39m"  }; }
 macro_rules! reset_bg    { () => { "\x1B[49m"  }; }
