@@ -24,8 +24,8 @@ macro_rules! hyper_start { () => { "\x1B]8;;" }; }
 macro_rules! hyper_text  { () => { "\x07"     }; }
 macro_rules! hyper_end   { () => { "\x1B]8;;\x07"  }; }
 
-macro_rules! italic_start   { () => { "\x1B3m"  }; }
-macro_rules! italic_end     { () => { "\x1B23m"  }; }
+macro_rules! italic_start   { () => { "\x1B[3m"  }; }
+macro_rules! italic_end     { () => { "\x1B[23m"  }; }
 
 // Reset
 macro_rules! reset_all   { () => { "\x1B[0m"  }; }

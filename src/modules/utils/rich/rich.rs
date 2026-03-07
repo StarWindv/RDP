@@ -71,7 +71,7 @@ impl Rich {
     }
 
     pub fn tag_match(input: &str) -> HashMap<String, String> {
-        Rich::extract_bracket_content(input, '<', '>', 3, 10, true)
+        Rich::extract_bracket_content(input, '<', '>', 3, 11, true)
     }
 
     pub fn counting(source: &str, target: &str, expected_count: usize) -> bool {
