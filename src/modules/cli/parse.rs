@@ -1,5 +1,6 @@
-use crate::modules::utils::rich::rich::Rich;
-use clap::{Arg, ArgAction, ArgMatches, Command};
+use clap;
+use color_rs::rich::Rich;
+
 /**
  * Fuck `argh`
  * <br>argh's macro receive static str/string description msg only
@@ -32,7 +33,6 @@ use clap::{Arg, ArgAction, ArgMatches, Command};
 
 #[derive(Debug)]
 pub struct Cli;
-
 
 impl Cli {
     pub fn build_version() -> String {
@@ -85,7 +85,7 @@ impl Cli {
                 RDP Usage:<Reset>\n\
                 <Bold>[255,255,255]-h/--help<Reset>               : Output This Message and Exit\n\
                 <Bold>[255,255,255]-v/--version<Reset>            : Output Project Version and Exit\n\
-                <Bold>[255,255,255]-d/--debug-output<Reset>      : Output Every Debug Output to Stdout\n\
+                <Bold>[255,255,255]-d/--debug-output<Reset>       : Output Every Debug Output to Stdout\n\
                 <Bold>[255,255,255]-R/--run-ir <ir-source><Reset> : Execute Optimized Binary Format IR Code\n\
                 <Bold>[255,255,255]-D/--dump-ir   <source><Reset> : Optimize the Source and Save it's IR in Binary Format\n\
                 <Bold>[255,255,255]-H/--human-ir  <source><Reset> : Optimize the Source and Save it's IR in Human-Readable Format",
@@ -97,83 +97,83 @@ impl Cli {
     }
 
     pub fn parse() -> clap::ArgMatches {
-        Command::new(env!("CARGO_PKG_NAME"))
+        clap::Command::new(env!("CARGO_PKG_NAME"))
             .help_template(Self::build_usage())
             .disable_help_flag(true)
             .disable_help_subcommand(true)
             .disable_version_flag(true)
             .arg(
-                Arg::new("help")
+                clap::Arg::new("help")
                     .short('h')
                     .long("help")
                     .help("Output This Message and Exit")
-                    .action(ArgAction::Help),
+                    .action(clap::ArgAction::Help),
             )
             .arg(
-                Arg::new("version")
+                clap::Arg::new("version")
                     .short('v')
                     .long("version")
                     .help("Output Project Version Info and Exit")
-                    .action(ArgAction::SetTrue),
+                    .action(clap::ArgAction::SetTrue),
             )
             .arg(
-                Arg::new("execute_command")
+                clap::Arg::new("execute_command")
                     .short('c')
                     .help("Execute String Command")
-                    .action(ArgAction::Set)
+                    .action(clap::ArgAction::Set)
                     .num_args(1)
                     .value_name("COMMAND"),
             )
             .arg(
-                Arg::new("force_stdin")
+                clap::Arg::new("force_stdin")
                     .short('s')
                     .help("Force stdin as Command Source")
-                    .action(ArgAction::SetTrue),
+                    .action(clap::ArgAction::SetTrue),
             )
             .arg(
-                Arg::new("force_interactive")
+                clap::Arg::new("force_interactive")
                     .short('i')
                     .help("Force Into Interactive Mode")
-                    .action(ArgAction::SetTrue),
+                    .action(clap::ArgAction::SetTrue),
             )
             .arg(
-                Arg::new("run_ir")
+                clap::Arg::new("run_ir")
                     .short('R')
                     .long("run-ir")
                     .help("Execute Optimized Binary Format IR")
-                    .action(ArgAction::Set)
+                    .action(clap::ArgAction::Set)
                     .num_args(1)
                     .value_name("IR"),
             )
             .arg(
-                Arg::new("debug_output")
+                clap::Arg::new("debug_output")
                     .short('d')
                     .long("debug-output")
                     .help("Output Every Debug Output to Stdout")
-                    .action(ArgAction::SetTrue),
+                    .action(clap::ArgAction::SetTrue),
             )
             .arg(
-                Arg::new("dump_ir")
+                clap::Arg::new("dump_ir")
                     .short('D')
                     .long("dump-ir")
                     .help("Optimize the Source and Save it's IR in Binary Format")
-                    .action(ArgAction::Set)
+                    .action(clap::ArgAction::Set)
                     .num_args(1)
                     .value_name("SOURCE"),
             )
             .arg(
-                Arg::new("human_ir")
+                clap::Arg::new("human_ir")
                     .short('H')
                     .long("human-ir")
                     .help("Optimize the Source and Save it's IR in Human-Readable Format")
-                    .action(ArgAction::Set)
+                    .action(clap::ArgAction::Set)
                     .num_args(1)
                     .value_name("SOURCE"),
             )
             .get_matches()
     }
 
-    pub fn run() -> ArgMatches{
+    pub fn run() -> clap::ArgMatches {
         let argv = Self::parse();
         if argv.get_flag("version") {
             print!("{}", Self::build_version());

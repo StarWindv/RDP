@@ -8,15 +8,15 @@ homepage = "https://github.com/starwindv/rdp"
 license = "GPL-3"
 build = "build.rs"
 
+
 [dependencies]
 anyhow = "1.0.102"
 chrono = "0.4.44"
 clap = { version = "4.5.60", features = ["cargo", "unicode", "derive"] }
-lazy_static = "1.5.0"
 nix = "0.31.2"
 os_pipe = "1.2.3"
-regex = "1.12.3"
 thiserror = "2.0.18"
+color_rs = { path = "color_rs", version = "0.0.1" }
 
 [build-dependencies]
 chrono = "0.4.44"
