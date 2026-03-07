@@ -10,20 +10,6 @@ pub struct HexColorFormatError(String);
 
 pub struct Colors;
 
-pub const RED: &str = red!();
-pub const ORANGE: &str = orange!();
-pub const YELLOW: &str = yellow!();
-pub const GREEN: &str = green!();
-pub const CYAN: &str = cyan!();
-pub const BLUE: &str = blue!();
-pub const PURPLE: &str = purple!();
-pub const RESET: &str = reset!();
-pub const BOLD: &str = bold!();
-pub const HYPER_START: &str = hyper_start!();
-pub const HYPER_TEXT: &str = hyper_text!();
-pub const HYPER_END: &str = hyper_end!();
-pub const UNDERLINE: &str = underline!();
-pub const LAST_START: &str = last_start!();
 
 lazy_static! {
     static ref HEX_COLOR_REGEX: Regex = Regex::new(r"^[0-9a-fA-F]+$").unwrap();
@@ -46,6 +32,7 @@ lazy_static! {
         map
     };
 }
+
 
 impl Colors {
     pub fn is_valid_hex_color(color_str: &str) -> bool {
@@ -97,6 +84,10 @@ impl Colors {
 
     // 生成背景颜色的ANSI码
     pub fn background_from_rgb(r: u8, g: u8, b: u8) -> String {
+        format!("\x1B[48;2;{};{};{}m", r, g, b)
+    }
+
+    pub fn background_from_rgb_str(r: &str, g: &str, b: &str) -> String {
         format!("\x1B[48;2;{};{};{}m", r, g, b)
     }
 

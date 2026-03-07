@@ -67,7 +67,7 @@ impl Rich {
     }
 
     pub fn color_match(input: &str) -> HashMap<String, String> {
-        Rich::extract_bracket_content(input, '[', ']', 1, 11, true)
+        Rich::extract_bracket_content(input, '[', ']', 1, 13, true)
     }
 
     pub fn tag_match(input: &str) -> HashMap<String, String> {
@@ -80,28 +80,60 @@ impl Rich {
 
     pub fn parse_colors(mut input: String) -> String {
         let color_tags = Rich::color_match(&input);
+
         for (tag, content) in color_tags {
-            if content.starts_with('#') {
-                // 十六进制颜色
-                if let Ok(color_code) = colors::Colors::front_from_hex(&content) {
-                    input = input.replace(&tag, &color_code);
-                }
-            } else if Rich::counting(&content, ",", 2) {
-                // RGB颜色，格式是r,g,b
-                let parts: Vec<&str> = content.split(',').collect();
-                let r = parts.get(0).map(|s| s.trim()).unwrap_or("");
-                let g = parts.get(1).map(|s| s.trim()).unwrap_or("");
-                let b = parts.get(2).map(|s| s.trim()).unwrap_or("");
-                let r = if r.is_empty() { "0" } else { r };
-                let g = if g.is_empty() { "0" } else { g };
-                let b = if b.is_empty() { "0" } else { b };
-                let color_code = colors::Colors::front_from_rgb_str(r, g, b);
+            if content == "/" {
+                input = input.replace(&tag, super::RESET);
+                continue;
+            }
+            let (is_background, color_value) = if content.starts_with("bg-") {
+                (true, &content[3..])
+            } else {
+                (false, content.as_str())
+            };
+
+            let color_code = Self::value_process(color_value, is_background)
+                .unwrap_or_else(|| String::new());
+            if !color_code.is_empty() {
                 input = input.replace(&tag, &color_code);
-            } else if content == "/" {
-                input = input.replace(&tag, &colors::RESET);
             }
         }
-        input + colors::RESET
+        input + super::RESET
+    }
+
+    fn value_process(value: &str, is_background: bool) -> Option<String> {
+        if value.starts_with('#') {
+            if is_background {
+                colors::Colors::background_from_hex(value).ok()
+            } else {
+                colors::Colors::front_from_hex(value).ok()
+            }
+        } else if value.split(',').count() >= 3 {
+            let parts: Vec<&str> = value.split(',').collect();
+            let extract_component = |idx: usize| -> &str {
+                parts.get(idx)
+                    .map(|s| s.trim())
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or("0")
+            };
+            let color_code = if is_background {
+                colors::Colors::background_from_rgb_str(
+                    extract_component(0),
+                    extract_component(1),
+                    extract_component(2)
+                )
+            } else {
+                colors::Colors::front_from_rgb_str(
+                    extract_component(0),
+                    extract_component(1),
+                    extract_component(2)
+                )
+            };
+
+            Some(color_code)
+        } else {
+            None
+        }
     }
 
     pub fn parse_tags(mut input: String) -> String {
@@ -122,7 +154,7 @@ impl Rich {
             }
         }
         // 最后加上重置码
-        input + colors::RESET
+        input + super::RESET
     }
 
     pub fn outline(input: &str) {

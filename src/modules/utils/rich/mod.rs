@@ -16,6 +16,21 @@ macro_rules! hyper_end   { () => { "\x1B]8;;\x07" }; }
 macro_rules! underline   { () => { "\x1b[4m" }; }
 macro_rules! last_start { () => { "\x1b[1A\x1b[G" }; }
 
+pub const RED: &str = red!();
+pub const ORANGE: &str = orange!();
+pub const YELLOW: &str = yellow!();
+pub const GREEN: &str = green!();
+pub const CYAN: &str = cyan!();
+pub const BLUE: &str = blue!();
+pub const PURPLE: &str = purple!();
+pub const RESET: &str = reset!();
+pub const BOLD: &str = bold!();
+pub const HYPER_START: &str = hyper_start!();
+pub const HYPER_TEXT: &str = hyper_text!();
+pub const HYPER_END: &str = hyper_end!();
+pub const UNDERLINE: &str = underline!();
+pub const LAST_START: &str = last_start!();
+
 pub(crate) use red;
 pub(crate) use orange;
 pub(crate) use yellow;
